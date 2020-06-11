@@ -3,6 +3,7 @@ from autogamen.game.match import Match
 
 
 match = Match()
+match.start()
 match_view = MatchView(match)
 match_view.create_window()
 match_view.run()
