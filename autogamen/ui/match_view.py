@@ -11,10 +11,10 @@ class MatchView:
     self.match = match
 
   def create_window(self):
-    master = Tk()
+    self.tk = Tk()
 
     self.canvas = Canvas(
-      master,
+      self.tk,
       width=self.WINDOW_WIDTH,
       height=self.WINDOW_HEIGHT
     )
@@ -41,7 +41,11 @@ class MatchView:
 
 
   def run(self):
-    self.draw_chrome()
-    self.draw_board()
-    mainloop()
-
+    self.match.start()
+    while True:
+      # TODO clear canvas
+      self.draw_chrome()
+      self.draw_board()
+      self.tk.update_idletasks()
+      self.tk.update()
+      self.match.tick()

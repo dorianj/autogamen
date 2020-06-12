@@ -111,7 +111,7 @@ class BoardView:
           )
 
   def draw_points(self):
-    for i, point in enumerate(self.game.points):
+    for i, point in enumerate(self.game.board.points):
       point_number = i + 1
       self.draw_point_board(point_number)
       self.draw_point_pips(point_number, point)

@@ -13,3 +13,15 @@ class Point:
 
     self.count = count
     self.color = color
+
+
+class TurnAction(Enum):
+  Move = 1
+  DoublingCube = 2
+
+
+class Move:
+  def __init__(self, point_number, distance):
+    self.point_number = point_number
+    self.distance = distance
+
