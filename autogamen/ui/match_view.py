@@ -49,3 +49,18 @@ class MatchView:
       self.tk.update_idletasks()
       self.tk.update()
       self.match.tick()
+
+
+
+def display_board(board):
+  """crude function to display a board for debugging purposes"""
+  from autogamen.game.match import Match
+
+  from autogamen.ai.bozo import BozoPlayer
+  from autogamen.game.types import Color
+
+  match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
+  match.current_game.board = board
+  match_view = MatchView(match)
+  match_view.create_window()
+  match_view.run()

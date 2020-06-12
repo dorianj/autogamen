@@ -38,9 +38,18 @@ class Point:
       self.color = color
 
     if self.color != color:
-      raise Exception("Point.add on a zero point")
+      raise Exception("Point.add on an opponent-occupied point - should .hit instead")
 
     self.count += 1
+
+  def hit(self, color):
+    if self.color == color:
+      raise Exception("Point.hit on own point -- should .add instead")
+
+    if self.count != 1:
+      raise Exception("Point.hit on a blocked point (logic error)")
+
+    self.color = color
 
   def subtract(self, color):
     if self.count == 0:
@@ -85,7 +94,7 @@ class Move:
     return self.point_number + self.distance * direction
 
   def destination_is_bar(self):
-    return self._destination_point_number() > 24 or self._destination_point_number() < 0
+    return self._destination_point_number() > 24 or self._destination_point_number() <= 0
 
   def destination_point_number(self):
     if self.destination_is_bar():

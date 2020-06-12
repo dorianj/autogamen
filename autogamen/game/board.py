@@ -61,14 +61,19 @@ class Board:
       raise Exception("Invalid move passed to apply_move")
 
     source_point = self.point_at_number(move.point_number)
+    source_point.subtract(move.color)
 
     if move.destination_is_bar():
-      raise Exception("TODO: Board.apply_move to the bar")
+      #raise Exception("TODO: Board.apply_move to the bar")
       return
 
     destination_point = self.point_at_number(move.destination_point_number())
-    source_point.subtract(move.color)
-    destination_point.add(move.color)
+
+    if destination_point.can_hit(move.color):
+      destination_point.hit(move.color)
+      # TODO: put the opposing pip onto the bar
+    else:
+      destination_point.add(move.color)
 
   def possible_moves(self, color, dice):
     """Returns the list of possible moves. Each item is a Set of Moves
@@ -96,6 +101,9 @@ class Board:
 
     effective_roll = dice.effective_roll()
     all_movesets = _worker(self, effective_roll)
+
+    if len(all_movesets) == 0:
+      return set()
 
     # Prune incomplete moves. Basically, if there exists movesets that use all
     # of the dice, then the ones that only use some of the dice are invalid.

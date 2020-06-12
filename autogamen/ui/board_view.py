@@ -38,7 +38,6 @@ class BoardView:
       self.offset(self.area.rectangle.width, self.area.rectangle.height),
     )
 
-
   def _point_coord(self, point_number):
     """Returns the Coord coordinate for a given point number"""
     mod = (point_number - 1) % 12

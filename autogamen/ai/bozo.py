@@ -8,7 +8,7 @@ class BozoPlayer(Player):
     super()
 
   def action(self):
-    time.sleep(5)
+    time.sleep(100)
     return [TurnAction.Move, None]
 
   def accept_doubling_cube(self):
