@@ -1,6 +1,6 @@
 from math import floor
 
-from .types import Coord
+from .types import Area, Coord, Rect
 from autogamen.game.types import Color
 
 
@@ -16,8 +16,8 @@ class BoardView:
 
 
     self.bar_width = 40
-    self.point_width = floor((self.area.rectangle.width - self.bar_width) / 12.0)
-    self.point_height = floor(self.area.rectangle.height / 2 * 0.85)
+    self.point_width = floor((self.area.rect.width - self.bar_width) / 12.0)
+    self.point_height = floor(self.area.rect.height / 2 * 0.85)
     self.max_displayed_pips = 5
     self.pip_size = floor(min(
       self.point_height / self.max_displayed_pips,
@@ -35,7 +35,7 @@ class BoardView:
     # Draw a border around the board
     self.canvas.create_rectangle(
       self.offset(0, 0),
-      self.offset(self.area.rectangle.width, self.area.rectangle.height),
+      self.offset(self.area.rect.width, self.area.rect.height),
     )
 
   def _point_coord(self, point_number):
@@ -50,7 +50,7 @@ class BoardView:
       x_index = mod
     else:
       x_index = 12 - mod - 1
-      y_pos = self.area.rectangle.height
+      y_pos = self.area.rect.height
 
     x_pos = self.point_width * x_index
 
@@ -80,34 +80,57 @@ class BoardView:
       text=point_number
     )
 
-  def draw_point_pips(self, point_number, point):
-    coord = self._point_coord(point_number)
-    top_sign = self._point_sign(point_number)
-    start_x = coord.x + self.point_width / 2 - self.pip_size / 2
-    overflow = point.count > self.max_displayed_pips
-    height_transform = self.point_height / (self.pip_size * point.count) if overflow else 1
+  def draw_pip_stack(self, count, color, direction, area, max_count):
+    """Draw a stack of pips
+      :count: int, number of pips to draw
+      :color: Color
+      :direction: int, 1 for up-to-down, -1 for down-to-up
+      :area: Area, bounding box. Coord is top left for downwards, bottom left for upwards
+      :max_count: max number of pips to render before stacking (TODO: infer from area)
+    """
+    overflow = count > max_count
+    height_transform = area.rect.height / (self.pip_size * count) if overflow else 1
 
-    for i in range(0, point.count):
+    for i in range(0, count):
       offset_y = 0
       offset_y += i * self.pip_size * height_transform
 
       self.canvas.create_oval(
-        self.offset(start_x, coord.y + offset_y * top_sign),
-        self.offset(start_x + self.pip_size, coord.y + (offset_y + self.pip_size) * top_sign),
-        fill=choose_color(point.color == Color.White, "#ffffff", "#222222"),
+        self.offset(area.offset.x, area.offset.y + offset_y * direction),
+        self.offset(area.offset.x + self.pip_size, area.offset.y + (offset_y + self.pip_size) * direction),
+        fill=choose_color(color == Color.White, "#ffffff", "#222222"),
         outline="#707070"
       )
 
       # For the last pip, if it overflowed, label the total pip count
-      if overflow and i == point.count - 1:
+      if overflow and i == count - 1:
         self.canvas.create_text(
           self.offset(
-            start_x + self.pip_size / 2,
-            coord.y + (offset_y + self.pip_size / 2) * top_sign
+            area.offset.x + self.pip_size / 2,
+            area.offset.y + (offset_y + self.pip_size / 2) * direction
           ),
-          text=point.count,
-          fill=choose_color(point.color == Color.White, "#ffffff", "#222222")
+          text=count,
+          fill=choose_color(color == Color.White, "#ffffff", "#222222")
           )
+
+
+  def draw_point_pips(self, point_number, point):
+    """Draw pips on a point
+    """
+    coord = self._point_coord(point_number)
+    top_sign = self._point_sign(point_number)
+    start_x = coord.x + self.point_width / 2 - self.pip_size / 2
+
+    self.draw_pip_stack(
+      point.count,
+      point.color,
+      top_sign,
+      Area(
+        Coord(start_x, coord.y),
+        Rect(self.point_width, self.point_height)
+      ),
+      self.max_displayed_pips
+    )
 
   def draw_points(self):
     for i, point in enumerate(self.game.board.points):
@@ -117,12 +140,12 @@ class BoardView:
 
 
   def draw_bar(self):
-    center_x = self.area.rectangle.width / 2
+    center_x = self.area.rect.width / 2
 
     # Draw the background of the bar
     self.canvas.create_rectangle(
       self.offset(center_x - self.bar_width / 2, 0),
-      self.offset(center_x + self.bar_width / 2, self.area.rectangle.height),
+      self.offset(center_x + self.bar_width / 2, self.area.rect.height),
       fill="#656565",
       outline="",
     )
@@ -134,7 +157,7 @@ class BoardView:
       if self.game.white_is_active():
         return dice_padding
       else:
-        return self.area.rectangle.height - dice_padding - self.die_size * 2
+        return self.area.rect.height - dice_padding - self.die_size * 2
 
     for i in [0, 1]:
       self.canvas.create_rectangle(
@@ -157,23 +180,26 @@ class BoardView:
         fill=choose_color(not self.game.white_is_active())
       )
 
+    # Draw pips on the bar
+
+
     # Draw the doubling cube in the center
-    # TODO -- move appropriately
+    # TODO -- move appropriately for owning player
     self.canvas.create_rectangle(
       self.offset(
         center_x - self.doubling_cube_size / 2,
-        self.area.rectangle.height / 2
+        self.area.rect.height / 2
       ),
       self.offset(
         center_x + self.doubling_cube_size / 2,
-        self.area.rectangle.height / 2 + self.doubling_cube_size
+        self.area.rect.height / 2 + self.doubling_cube_size
       ),
       fill="#ffffff"
     )
     self.canvas.create_text(
       self.offset(
         center_x,
-        self.area.rectangle.height / 2 + self.doubling_cube_size / 2
+        self.area.rect.height / 2 + self.doubling_cube_size / 2
       ),
       text=self.game.doubling_cube
     )

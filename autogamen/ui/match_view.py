@@ -1,7 +1,7 @@
 from tkinter import Tk, Canvas, mainloop
 
 from .board_view import BoardView
-from .types import Area, Coord, Rectangle
+from .types import Area, Coord, Rect
 
 class MatchView:
   WINDOW_WIDTH = 600
@@ -29,7 +29,7 @@ class MatchView:
       self.canvas,
       Area(
         padding,
-        Rectangle(
+        Rect(
           self.WINDOW_WIDTH - padding.x * 2,
           self.WINDOW_HEIGHT - padding.y * 2,
         )
