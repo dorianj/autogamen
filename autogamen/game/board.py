@@ -5,11 +5,13 @@ import itertools
 from .types import Color, Move
 
 class Board:
-  def __init__(self, points):
+  def __init__(self, points, bar=None, off=None):
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
 
     self.points = points
+    self.bar = bar or {Color.White: 0, Color.Black: 0}
+    self.off = off or {Color.White: 0, Color.Black: 0}
 
   def is_complete(self):
     """Returns boolean indicating whether all pips are accounted for.
@@ -23,6 +25,9 @@ class Board:
     return list(counts.values()) == [15, 15]
 
   def can_bear_off(self, color):
+    if self.bar[color] != 0:
+      return False
+
     home_range = self.home_board_range(color)
 
     for i, point in enumerate(self.points):
@@ -33,6 +38,9 @@ class Board:
 
     return True
 
+  def add_off(self, color):
+    self.off[color] += 1
+
   def home_board_range(self, color):
     if color == Color.Black:
       return [1, 6]
@@ -40,54 +48,81 @@ class Board:
       return [19, 24]
 
   def point_at_number(self, point_number):
+    if point_number == 0:
+      raise Exception("Board.point_at_number attempted to get the bar")
+
     return self.points[point_number - 1]
 
   def move_is_valid(self, move):
-    source_point = self.point_at_number(move.point_number)
+    # These may be incalcuable, so lazily compute them
+    destination_point = lambda: self.point_at_number(move.destination_point_number())
+    source_point = lambda: self.point_at_number(move.point_number)
 
-    # Must have at least one of own color to move
-    if source_point.is_empty() or source_point.color != move.color:
+    # This is coming off of the bar.
+    if move.point_number == Move.Bar:
+      return self.bar[move.color] > 0 and destination_point().can_land(move.color)
+
+    # If this color has anything on the bar, can't move on the board
+    if self.bar[move.color] > 0:
       return False
 
-    if move.destination_is_bar():
-      # This would bar off
+    # Must have at least one of own color to move
+    if source_point().is_empty() or source_point().color != move.color:
+      return False
+    elif move.destination_is_off():
       return self.can_bear_off(move.color)
+    else:
+      return destination_point().can_land(move.color)
 
-    destination_point = self.point_at_number(move.destination_point_number())
-    return destination_point.can_add(move.color)
+  def add_bar(self, color):
+    self.bar[color] += 1
+
+  def subtract_bar(self, color):
+    if self.bar[color] < 1:
+      raise Exception("Board.subtract_bar: bar is empty")
+
+    self.bar[color] -= 1
 
   def apply_move(self, move):
+    """Mutate this board to apply :move:
+    """
     if not self.move_is_valid(move):
       raise Exception("Invalid move passed to apply_move")
 
-    source_point = self.point_at_number(move.point_number)
-    source_point.subtract(move.color)
-
-    if move.destination_is_bar():
-      #raise Exception("TODO: Board.apply_move to the bar")
-      return
-
-    destination_point = self.point_at_number(move.destination_point_number())
-
-    if destination_point.can_hit(move.color):
-      destination_point.hit(move.color)
-      # TODO: put the opposing pip onto the bar
+    # Subtract the source pip, wherever it may be
+    if move.point_number == Move.Bar:
+      self.subtract_bar(move.color)
     else:
-      destination_point.add(move.color)
+      source_point = self.point_at_number(move.point_number)
+      source_point.subtract(move.color)
+
+    # Move this pip, either off or on the board
+    if move.destination_is_off():
+      self.add_off(move.color)
+    else:
+      destination_point = self.point_at_number(move.destination_point_number())
+
+      if destination_point.can_hit(move.color):
+        destination_point.hit(move.color)
+        self.add_bar(move.color.opposite())
+      else:
+        destination_point.add(move.color)
 
   def possible_moves(self, color, dice):
     """Returns the list of possible moves. Each item is a Set of Moves
     """
-
     def _worker(board, remaining_dice):
       if not len(remaining_dice):
         return []
 
       moves = []
       for d, die in enumerate(remaining_dice):
-        for i, point in enumerate(board.points):
-          point_number = i + 1
-
+        # Attempt to find moves on the board or bar. We're gonna do a little
+        # sneaky thing and start at 0, which is Move.Bar, which will ensure that
+        # we get pips off the bar before moving pips on the board. I'm sorry.
+        # This is horrendously clever (and not even that smart), but it did
+        # save a good bit of lines of code.
+        for point_number in range(0, 24):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
             moves.append((move,))

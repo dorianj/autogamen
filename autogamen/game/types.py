@@ -6,6 +6,12 @@ class Color(Enum):
   White = 1
   Black = 2
 
+  def opposite(self):
+    if self == Color.White:
+      return Color.Black
+    else:
+      return Color.White
+
 
 class Point:
   def __init__(self, count=0, color=None):
@@ -24,13 +30,17 @@ class Point:
     else:
       return f"(Point {self.color}/{self.count})"
 
+  def __eq__(self, other):
+    return self.count == other.count and self.color == other.color
+
   def is_empty(self):
     return self.color is None
 
   def can_hit(self, color):
     return (not self.is_empty()) and (self.color != color) and (self.count == 1)
 
-  def can_add(self, color):
+  def can_land(self, color):
+    """Returns whether it's allowed to add here or hit here."""
     return self.is_empty() or self.can_hit(color) or (self.color == color)
 
   def add(self, color):
@@ -67,14 +77,20 @@ class TurnAction(Enum):
 
 
 class Move:
+  # Bar's point number is 0, which is special. Board relies on this behavior
+  # in possible_moves to avoid code duplication.
+  Bar = 0
+
+
   def __init__(self, color, point_number, distance):
     self.point_number = point_number
     self.distance = distance
     self.color = color
 
   def __str__(self):
-    destination = "bar" if self.destination_is_bar() else self._destination_point_number()
-    return f"({self.point_number}+{self.distance} -> {destination})"
+    source = "bar" if self.point_number is Move.Bar else self.point_number
+    destination = "bar" if self.destination_is_off() else self._destination_point_number()
+    return f"({source}+{self.distance} -> {destination})"
 
   def __eq__(self, other):
     return (
@@ -90,14 +106,20 @@ class Move:
     return self.__str__()
 
   def _destination_point_number(self):
-    direction = -1 if self.color is Color.Black else 1
-    return self.point_number + self.distance * direction
+    direction = -1 if self.color == Color.Black else 1
 
-  def destination_is_bar(self):
+    if self.point_number == Move.Bar:
+      effective_start = 25 if self.color == Color.Black else 0
+    else:
+      effective_start = self.point_number
+
+    return effective_start + self.distance * direction
+
+  def destination_is_off(self):
     return self._destination_point_number() > 24 or self._destination_point_number() <= 0
 
   def destination_point_number(self):
-    if self.destination_is_bar():
+    if self.destination_is_off():
       raise Exception("Move: Can't get destination point if into bar")
 
     return self._destination_point_number()
