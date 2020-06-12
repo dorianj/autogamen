@@ -1,21 +1,8 @@
 import random
 import time
 
-from .types import Color, Point, TurnAction
+from .types import Color, Point, TurnAction, Dice
 from .board import Board
-
-class Dice:
-  def __init__(self, count=2):
-    self.count = count
-    self.roll = (random.randint(1,6), random.randint(1, 6))
-
-  def effective_roll(self):
-    """Returns a list of rolls; for doubles, they will be duplicated.
-    """
-    if self.roll[0] == self.roll[1]:
-      return [self.roll[0], self.roll[0], self.roll[0], self.roll[0]]
-    else:
-      return self.roll
 
 
 class Game:
@@ -44,6 +31,32 @@ class Game:
       Point(0),
       Point(0),
       Point(0),
+      Point(2, Color.Black),
+    ])
+    self.board = Board([
+      Point(5, Color.Black),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(5, Color.Black),
+      Point(0),
+      Point(3, Color.Black),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(2, Color.White),
+      Point(0),
+      Point(0),
+      Point(0),
+      Point(2, Color.White),
       Point(2, Color.Black),
     ])
 
