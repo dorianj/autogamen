@@ -14,13 +14,12 @@ class BoardView:
     self.area = area
     self.game = game
 
-
     self.bar_width = 40
-    self.point_width = floor((self.area.rect.width - self.bar_width) / 12.0)
+    self.point_width = (self.area.rect.width - self.bar_width) / 12.0
     self.point_height = floor(self.area.rect.height / 2 * 0.85)
-    self.max_displayed_pips = 5
+    # Size pips such that 5 are visible without overlapping
     self.pip_size = floor(min(
-      self.point_height / self.max_displayed_pips,
+      self.point_height / 5,
       self.point_width * 0.95
     ))
     self.doubling_cube_size = 25
@@ -80,20 +79,23 @@ class BoardView:
       text=point_number
     )
 
-  def draw_pip_stack(self, count, color, direction, area, max_count):
+  def draw_pip_stack(self, count, color, direction, area):
     """Draw a stack of pips
       :count: int, number of pips to draw
       :color: Color
       :direction: int, 1 for up-to-down, -1 for down-to-up
       :area: Area, bounding box. Coord is top left for downwards, bottom left for upwards
-      :max_count: max number of pips to render before stacking (TODO: infer from area)
     """
-    overflow = count > max_count
-    height_transform = area.rect.height / (self.pip_size * count) if overflow else 1
+    if count is 0:
+      return
 
+    natural_height = self.pip_size * count
+    overflow = natural_height > area.rect.height
+    y_transform = min((area.rect.height - self.pip_size) / (natural_height - self.pip_size), 1)
+
+    offset_y = 0
     for i in range(0, count):
-      offset_y = 0
-      offset_y += i * self.pip_size * height_transform
+      offset_y = i * self.pip_size * y_transform
 
       self.canvas.create_oval(
         self.offset(area.offset.x, area.offset.y + offset_y * direction),
@@ -102,17 +104,16 @@ class BoardView:
         outline="#707070"
       )
 
-      # For the last pip, if it overflowed, label the total pip count
-      if overflow and i == count - 1:
-        self.canvas.create_text(
-          self.offset(
-            area.offset.x + self.pip_size / 2,
-            area.offset.y + (offset_y + self.pip_size / 2) * direction
-          ),
-          text=count,
-          fill=choose_color(color == Color.White, "#ffffff", "#222222")
-          )
-
+    # When overflow occurs, label the total pip count.
+    if overflow:
+      self.canvas.create_text(
+        self.offset(
+          area.offset.x + self.pip_size / 2,
+          area.offset.y + (offset_y + self.pip_size / 2) * direction
+        ),
+        text=count,
+        fill=choose_color(color != Color.White, "#ffffff", "#222222")
+      )
 
   def draw_point_pips(self, point_number, point):
     """Draw pips on a point
@@ -128,8 +129,7 @@ class BoardView:
       Area(
         Coord(start_x, coord.y),
         Rect(self.point_width, self.point_height)
-      ),
-      self.max_displayed_pips
+      )
     )
 
   def draw_points(self):
