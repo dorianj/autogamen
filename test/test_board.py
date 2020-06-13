@@ -3,9 +3,9 @@ import itertools
 
 from autogamen.game.board import Board
 from autogamen.game.types import Color, Dice, Move, Point
-
-
 from autogamen.ui.match_view import display_board
+
+from .performance import assertRuntime
 
 def repeat_point(repeat_count, pips=0, color=None):
   return [Point(pips, color) for i in range(repeat_count)]
@@ -400,3 +400,13 @@ class TestApplyMoves(unittest.TestCase):
     board.apply_move(Move(Color.White, 24, 1))
 
     self.assertEqual(board.off[Color.White], 1)
+
+class TestPerformance(unittest.TestCase):
+  def test_double_roll_filled_board_performance(self):
+    board = Board(
+      repeat_point(2, 1, Color.White) +
+      repeat_point(2, 1, Color.Black) +
+      repeat_point(20)
+    )
+    with assertRuntime(self, 0.1):
+      board.possible_moves(Color.White, Dice(roll=[2,2]))
