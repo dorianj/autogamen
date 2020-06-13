@@ -41,6 +41,40 @@ class Board:
   def add_off(self, color):
     self.off[color] += 1
 
+  def winner(self):
+    """Returns the winning player's color, or None if no one has won
+    """
+    for color, pips in self.off.items():
+      if pips == 15:
+        return color
+
+    return None
+
+  def winner_stakes(self):
+    """Returns 3 for a backgammon, 2 for a gammon, and 1 for a regular win.
+    """
+    winner = self.winner()
+    if not winner:
+      raise Exception("winner_stakes isn't valid unless a win occurs")
+
+    opponent = winner.opponent()
+    opponent_pips_off = self.off[opponent]
+    opponent_pips_on_bar = self.bar[opponent]
+    oppponen_pips_in_winner_home = sum(
+      self.point_at_number(point_number).count
+      for point_number in range(*self.home_board_range(winner)))
+
+    if opponent_pips_off > 0:
+      # Normal win, if the oppoennt has borne off any pips.
+      return 1
+    elif (opponent_pips_on_bar + oppponen_pips_in_winner_home) != 0:
+      # If the opponent has not yet borne off any checkers and has some on the bar
+      # or in the winner's home board, the winner scores a backgammon.
+      return 3
+    else:
+      # If the opponent has not yet borne off any checkers.
+      return 2
+
   def home_board_range(self, color):
     if color == Color.Black:
       return [1, 6]
@@ -54,6 +88,11 @@ class Board:
     return self.points[point_number - 1]
 
   def move_is_valid(self, move):
+    """Returns whether a single move is allowed, i.e. that if it would bear off,
+       the player is currently allowed to bear off, that it doesn't try to hit
+       a block, that it is coming from a non-empty space, etc.
+    """
+
     # These may be incalcuable, so lazily compute them
     destination_point = lambda: self.point_at_number(move.destination_point_number())
     source_point = lambda: self.point_at_number(move.point_number)
@@ -104,7 +143,7 @@ class Board:
 
       if destination_point.can_hit(move.color):
         destination_point.hit(move.color)
-        self.add_bar(move.color.opposite())
+        self.add_bar(move.color.opponent())
       else:
         destination_point.add(move.color)
 

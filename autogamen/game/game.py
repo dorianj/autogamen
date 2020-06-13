@@ -14,7 +14,7 @@ class Game:
       Point(),
       Point(),
       Point(5, Color.Black),
-      Point(0),
+      Point(),
       Point(3, Color.Black),
       Point(),
       Point(),
@@ -25,7 +25,7 @@ class Game:
       Point(),
       Point(),
       Point(3, Color.White),
-      Point(0),
+      Point(),
       Point(5, Color.White),
       Point(),
       Point(),
@@ -51,7 +51,7 @@ class Game:
 
     # Set by end()
     self.winner = None
-    self.outcome = None
+    self.points = 0
 
   def roll_starting(self):
     while True:
@@ -69,35 +69,53 @@ class Game:
 
     print(f"First roll: {self.active_dice.roll}; starting player: {self.active_color}")
 
-  def end(self, winner, outcome):
+  def end(self, winner, points):
     self.winner = winner
-    self.outcome = outcome
+    self.points = points
 
     # Inform the players of their fate
     for player in self.players.values():
       player.end_game(self)
 
+  def check_winning_condition(self):
+    if self.board.winner():
+      self.end(self.players[self.board.winner()], self.board.winner_stakes() * self.doubling_cube)
+      return True
+    else:
+      return False
+
   def run_turn(self):
-    """Runs a single turn. Returns true if the game is still in-progress.
+    """Runs a single turn.
     """
+    self.active_color = self.active_color.opponent()
+    self.active_dice = Dice()
     self.turn_number += 1
     print(f"Turn {self.turn_number}: {self.active_color} has roll {self.active_dice.roll}:")
 
-    [turn_action, turn_detail] = self.active_player().action()
+    possible_moves = self.board.possible_moves(self.active_color, self.active_dice)
+    turn_result = self.active_player().action(set(possible_moves))
+    turn_action = turn_result[0]
 
     if turn_action is TurnAction.Move:
-      print(f"\tmove")
-      # TODO: validate the move
-      raise Exception("invalid move")
-      return True
+      moves = turn_result[1]
+      print(f"\tMoves: {moves}")
+
+      if moves not in possible_moves:
+        raise Exception("Illegal move attempted!")
+
+      [self.board.apply_move(move) for move in moves]
     elif turn_action is TurnAction.DoublingCube:
       print(f"\tOffers the doubling cube")
       raise Exception("Doubling cube is unimplemented")
-      return True
+    elif turn_action is TurnAction.Pass:
+      if len(possible_moves):
+        raise Exception("Illegal pass attempted!")
+      print("\tNo play available, player passes")
     else:
       raise Exception(f"Unknown turn action {turn_action}")
 
-    time.sleep(10000)
+    self.check_winning_condition()
+
 
   def active_player(self):
     return self.players[self.active_color]

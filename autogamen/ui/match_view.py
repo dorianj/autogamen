@@ -36,7 +36,7 @@ class MatchView:
       ),
       self.match.current_game
     )
-
+    self.canvas.delete("all")
     bv.draw()
 
 

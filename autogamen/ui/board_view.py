@@ -110,7 +110,7 @@ class BoardView:
 
     natural_height = self.pip_size * count
     overflow = natural_height > area.rect.height
-    y_transform = min((area.rect.height - self.pip_size) / (natural_height - self.pip_size), 1)
+    y_transform = (area.rect.height - self.pip_size) / (natural_height - self.pip_size) if overflow else 1
     offset_x = area.offset.x + area.rect.width / 2 - self.pip_size / 2
 
     offset_y = 0
@@ -259,7 +259,6 @@ class BoardView:
     off_pips_height = self.area.rect.height / 3
     for color in Color:
       direction = self._color_direction(color) * -1
-      print(self.game.board.off[color])
       self.draw_pip_stack(
         self.game.board.off[color],
         color,
@@ -269,7 +268,6 @@ class BoardView:
           Rect(self.off_width - separator_width, off_pips_height)
         )
       )
-
 
   def draw(self):
     self.draw_chrome()

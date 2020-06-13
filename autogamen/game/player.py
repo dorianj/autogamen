@@ -6,7 +6,7 @@ class Player:
   def start_game(self, game):
     self.game = game
 
-  def action(self):
+  def action(self, possible_moves):
     """Called at the start of a turn.
     Return: [TurnAction, moves?]
     """

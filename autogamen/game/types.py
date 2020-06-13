@@ -6,7 +6,7 @@ class Color(Enum):
   White = 1
   Black = 2
 
-  def opposite(self):
+  def opponent(self):
     if self == Color.White:
       return Color.Black
     else:
@@ -74,6 +74,7 @@ class Point:
 class TurnAction(Enum):
   Move = 1
   DoublingCube = 2
+  Pass = 3
 
 
 class Move:
