@@ -34,16 +34,22 @@ class Game:
       Point(2, Color.Black),
     ])
 
-    self.active_player_idx = None
-    self.active_dice = [0, 0]
+    # Player state tracking. Immutable.
+    self.players = {player.color: player for player in players}
 
+    if len(players) != 2 or list(self.players.keys()) != list(Color):
+      raise Exception("Game constructor: Invalid players provided")
+
+    # Turn tracking, will by initialized by start() and mutated by run_turn()
+    self.active_color = None
+    self.active_dice = None
     self.doubling_owner = None
     self.doubling_cube = 1
 
-    self.players = players # white,black
-
+    # Internal tracking, no implications on gameplay. Mutated by run_turn()
     self.turn_number = 0
 
+    # Set by end()
     self.winner = None
     self.outcome = None
 
@@ -51,31 +57,31 @@ class Game:
     while True:
       dice = Dice()
       [white_die, black_die] = dice.roll
-      if white_die != black_die:
-        return ((white_die > black_die), dice)
+      if dice.roll[0] != dice.roll[1]:
+        return dice
 
   def start(self):
-    for player in self.players:
+    for player in self.players.values():
       player.start_game(self)
 
-    [white_starts, self.active_dice] = self.roll_starting()
-    self.active_player_idx = 0 if white_starts else 1
+    self.active_dice = self.roll_starting()
+    self.active_color = Color.White if self.active_dice.roll[0] > self.active_dice.roll[1] else Color.Black
 
-    print(f"First roll: {self.active_dice.roll}; starting player: {self.active_color()}")
+    print(f"First roll: {self.active_dice.roll}; starting player: {self.active_color}")
 
   def end(self, winner, outcome):
     self.winner = winner
     self.outcome = outcome
 
     # Inform the players of their fate
-    for player in self.players:
+    for player in self.players.values():
       player.end_game(self)
 
   def run_turn(self):
     """Runs a single turn. Returns true if the game is still in-progress.
     """
     self.turn_number += 1
-    print(f"Turn {self.turn_number}: {self.active_color()} has roll {self.active_dice.roll}:")
+    print(f"Turn {self.turn_number}: {self.active_color} has roll {self.active_dice.roll}:")
 
     [turn_action, turn_detail] = self.active_player().action()
 
@@ -94,13 +100,4 @@ class Game:
     time.sleep(10000)
 
   def active_player(self):
-    return self.players[self.active_player_idx]
-
-  def inactive_player(self):
-    return self.players[(self.active_player_idx + 1) % 2]
-
-  def white_is_active(self):
-    return self.active_player == 0
-
-  def active_color(self):
-    return Color.White if self.active_player == 0 else Color.Black
+    return self.players[self.active_color]

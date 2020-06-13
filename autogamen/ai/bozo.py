@@ -4,9 +4,6 @@ from autogamen.game.player import Player
 from autogamen.game.types import TurnAction
 
 class BozoPlayer(Player):
-  def __init__(self, color):
-    super()
-
   def action(self):
     time.sleep(100)
     return [TurnAction.Move, None]
