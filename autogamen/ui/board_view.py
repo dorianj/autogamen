@@ -15,7 +15,9 @@ class BoardView:
     self.game = game
 
     self.bar_width = 40
-    self.point_width = (self.area.rect.width - self.bar_width) / 12.0
+    self.off_width = 40
+    self.playable_width = self.area.rect.width - self.off_width
+    self.point_width = (self.playable_width - self.bar_width) / 12.0
     self.point_height = floor(self.area.rect.height / 2 * 0.85)
     # Size pips such that 5 are visible without overlapping
     self.pip_size = floor(min(
@@ -91,7 +93,8 @@ class BoardView:
 
     # Draw the point number indicator
     self.canvas.create_text(
-      self.area.offset.x + coord.x + self.point_width / 2, self.area.offset.y + coord.y + 10 * top_sign,
+      self.area.offset.x + coord.x + self.point_width / 2,
+      self.area.offset.y + coord.y + 10 * top_sign,
       text=point_number
     )
 
@@ -108,14 +111,15 @@ class BoardView:
     natural_height = self.pip_size * count
     overflow = natural_height > area.rect.height
     y_transform = min((area.rect.height - self.pip_size) / (natural_height - self.pip_size), 1)
+    offset_x = area.offset.x + area.rect.width / 2 - self.pip_size / 2
 
     offset_y = 0
     for i in range(0, count):
       offset_y = i * self.pip_size * y_transform
 
       self.canvas.create_oval(
-        self.offset(area.offset.x, area.offset.y + offset_y * direction),
-        self.offset(area.offset.x + self.pip_size, area.offset.y + (offset_y + self.pip_size) * direction),
+        self.offset(offset_x, area.offset.y + offset_y * direction),
+        self.offset(offset_x + self.pip_size, area.offset.y + (offset_y + self.pip_size) * direction),
         fill=choose_color(color == Color.White, "#ffffff", "#222222"),
         outline="#707070"
       )
@@ -124,7 +128,7 @@ class BoardView:
     if overflow:
       self.canvas.create_text(
         self.offset(
-          area.offset.x + self.pip_size / 2,
+          offset_x + self.pip_size / 2,
           area.offset.y + (offset_y + self.pip_size / 2) * direction
         ),
         text=count,
@@ -156,7 +160,7 @@ class BoardView:
 
 
   def draw_bar(self):
-    center_x = self.area.rect.width / 2
+    center_x = self.playable_width / 2
     bar_start_x = center_x - self.bar_width / 2
 
     # Draw the background of the bar
@@ -206,7 +210,7 @@ class BoardView:
         color,
         direction,
         Area(
-          Coord(center_x - self.pip_size / 2, self._y_reflected(bar_pips_offset, direction)),
+          Coord(bar_start_x, self._y_reflected(bar_pips_offset, direction)),
           Rect(self.bar_width, bar_pips_height)
         )
       )
@@ -232,9 +236,43 @@ class BoardView:
       text=self.game.doubling_cube
     )
 
+  def draw_off(self):
+    # Draw the background of the off-board area
+    off_start_x = self.playable_width
+    self.canvas.create_rectangle(
+      self.offset(off_start_x, 1),
+      self.offset(off_start_x + self.off_width, self.area.rect.height),
+      fill="#EAEAEA",
+      outline="",
+    )
+
+    separator_width = 3
+    self.canvas.create_line(
+      self.offset(off_start_x + separator_width / 2, 1),
+      self.offset(off_start_x + separator_width / 2, self.area.rect.height),
+      fill="#404040",
+      width=separator_width
+    )
+
+    off_pips_x = off_start_x + separator_width
+    off_pips_y = 10
+    off_pips_height = self.area.rect.height / 3
+    for color in Color:
+      direction = self._color_direction(color) * -1
+      print(self.game.board.off[color])
+      self.draw_pip_stack(
+        self.game.board.off[color],
+        color,
+        direction,
+        Area(
+          Coord(off_pips_x, self._y_reflected(off_pips_y, direction)),
+          Rect(self.off_width - separator_width, off_pips_height)
+        )
+      )
 
 
   def draw(self):
     self.draw_chrome()
     self.draw_points()
     self.draw_bar()
+    self.draw_off()
