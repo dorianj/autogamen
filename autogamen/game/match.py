@@ -15,5 +15,5 @@ class Match:
     self.current_game.run_turn()
 
     if self.current_game.winner:
-      print(f"Game ended! {self.current_game.winner} won with {self.current_game.points} points")
+      print(f"Game ended! {self.current_game.winner.color} won with {self.current_game.points} points")
       self.start_new_game()

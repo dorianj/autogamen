@@ -43,7 +43,6 @@ class MatchView:
   def run(self):
     self.match.start()
     while True:
-      # TODO clear canvas
       self.draw_chrome()
       self.draw_board()
       self.tk.update_idletasks()
@@ -54,9 +53,8 @@ class MatchView:
 
 def display_board(board):
   """crude function to display a board for debugging purposes"""
-  from autogamen.game.match import Match
-
   from autogamen.ai.bozo import BozoPlayer
+  from autogamen.game.match import Match
   from autogamen.game.types import Color
 
   match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
