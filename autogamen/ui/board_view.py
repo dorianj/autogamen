@@ -26,23 +26,25 @@ class BoardView:
     self.die_size = 18
 
   def offset(self, *args):
-    """Returns the offset point. Accepts x/y args or a single Coord"""
+    """ Returns the offset point. Accepts x/y args or a single Coord
+    """
     point = args[0] if len(args) == 1 else Coord(args[0], args[1])
     return Coord(point.x + self.area.offset.x, point.y + self.area.offset.y)
 
   def draw_chrome(self):
-    # Draw a border around the board
+    """ Draw a border around the board
+    """
     self.canvas.create_rectangle(
       self.offset(0, 0),
       self.offset(self.area.rect.width, self.area.rect.height),
     )
 
   def _point_coord(self, point_number):
-    """Returns the Coord coordinate for a given point number"""
+    """Returns the Coord coordinate for a given point number
+    """
     mod = (point_number - 1) % 12
     x_index = None
     y_pos = None
-
 
     if point_number > 12:
       y_pos = 1
@@ -58,12 +60,26 @@ class BoardView:
 
     return Coord(x_pos, y_pos)
 
-  def _point_sign(self, point_number):
+  def _y_reflected(self, y, direction):
+    """Given a coordinate :y:, position it given :direction:. If direction is
+       1 (downwards), y is unadjusted. If direction is -1 (upwards), it will be
+       subtracted from the height of the board.
+    """
+    return y if direction == 1 else self.area.rect.height - y
+
+  def _point_direction(self, point_number):
+    """Returns a direction, that is, -1 for upwards and 1 for downwards. Useful
+       when drawing stuff going up or down the board."""
     return -1 if point_number <= 12 else 1
+
+  def _color_direction(self, color):
+    """Same as _point_direction, but for color's home sides.
+    """
+    return 1 if color is Color.Black else -1
 
   def draw_point_board(self, point_number):
     coord = self._point_coord(point_number)
-    top_sign = self._point_sign(point_number)
+    top_sign = self._point_direction(point_number)
 
     # Draw the triangle
     self.canvas.create_polygon(
@@ -119,13 +135,13 @@ class BoardView:
     """Draw pips on a point
     """
     coord = self._point_coord(point_number)
-    top_sign = self._point_sign(point_number)
+    direction = self._point_direction(point_number)
     start_x = coord.x + self.point_width / 2 - self.pip_size / 2
 
     self.draw_pip_stack(
       point.count,
       point.color,
-      top_sign,
+      direction,
       Area(
         Coord(start_x, coord.y),
         Rect(self.point_width, self.point_height)
@@ -141,10 +157,11 @@ class BoardView:
 
   def draw_bar(self):
     center_x = self.area.rect.width / 2
+    bar_start_x = center_x - self.bar_width / 2
 
     # Draw the background of the bar
     self.canvas.create_rectangle(
-      self.offset(center_x - self.bar_width / 2, 0),
+      self.offset(bar_start_x, 0),
       self.offset(center_x + self.bar_width / 2, self.area.rect.height),
       fill="#656565",
       outline="",
@@ -152,9 +169,8 @@ class BoardView:
 
     # Draw the dice on the player's side
     dice_padding = 10
-    dice_offset = 0
-    def dice_offset():
-      if self.game.white_is_active():
+    def dice_offset(): # TODO would be nice to use _y_reflected
+      if self.game.active_color == Color.White:
         return dice_padding
       else:
         return self.area.rect.height - dice_padding - self.die_size * 2
@@ -169,7 +185,7 @@ class BoardView:
           center_x + self.die_size / 2,
           dice_offset() + self.die_size * (i + 1)
         ),
-        fill=choose_color(self.game.white_is_active())
+        fill=choose_color(self.game.active_color == Color.White)
       )
       self.canvas.create_text(
         self.offset(
@@ -177,29 +193,41 @@ class BoardView:
           dice_offset() + self.die_size * (i + 0.5)
         ),
         text=self.game.active_dice.roll[i],
-        fill=choose_color(not self.game.white_is_active())
+        fill=choose_color(self.game.active_color == Color.Black)
       )
 
     # Draw pips on the bar
-
+    bar_pips_offset = dice_padding + self.die_size * 2 + self.doubling_cube_size + 10
+    bar_pips_height = self.area.rect.height / 2 - bar_pips_offset - self.doubling_cube_size - 10
+    for color in Color:
+      direction = self._color_direction(color)
+      self.draw_pip_stack(
+        self.game.board.bar[color],
+        color,
+        direction,
+        Area(
+          Coord(center_x - self.pip_size / 2, self._y_reflected(bar_pips_offset, direction)),
+          Rect(self.bar_width, bar_pips_height)
+        )
+      )
 
     # Draw the doubling cube in the center
     # TODO -- move appropriately for owning player
     self.canvas.create_rectangle(
       self.offset(
         center_x - self.doubling_cube_size / 2,
-        self.area.rect.height / 2
+        self.area.rect.height / 2 - self.doubling_cube_size / 2
       ),
       self.offset(
         center_x + self.doubling_cube_size / 2,
-        self.area.rect.height / 2 + self.doubling_cube_size
+        self.area.rect.height / 2 + self.doubling_cube_size / 2
       ),
       fill="#ffffff"
     )
     self.canvas.create_text(
       self.offset(
         center_x,
-        self.area.rect.height / 2 + self.doubling_cube_size / 2
+        self.area.rect.height / 2
       ),
       text=self.game.doubling_cube
     )
