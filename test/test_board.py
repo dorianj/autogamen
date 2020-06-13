@@ -359,6 +359,20 @@ class TestBoardMoves(unittest.TestCase):
       set()
     )
 
+  def test_white_can_bear_off_from_24(self):
+    board = Board(
+      repeat_point(23) +
+      repeat_point(1, 1, Color.White)
+    )
+
+    self.assertEqual(
+      board.possible_moves(Color.White, Dice(roll=[1,6])),
+      set([
+        (Move(Color.White, 24, 1),),
+        (Move(Color.White, 24, 6),),
+      ])
+    )
+
 
 class TestBar(unittest.TestCase):
   def test_cant_bear_off_with_bar(self):
