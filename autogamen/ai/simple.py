@@ -20,7 +20,7 @@ class BozoPlayer(Player):
 
 
 class RunningPlayer(Player):
-  """This player picks the move that minimizes own pip count.
+  """Picks the move that minimizes own pip count.
   """
   def action(self, possible_moves):
     if not len(possible_moves):
@@ -32,6 +32,26 @@ class RunningPlayer(Player):
       boards_by_pip_count[board.pip_count()[self.color]].add(moves)
 
     possible_moves = boards_by_pip_count[min(boards_by_pip_count.keys())]
+    return [TurnAction.Move, random.choice(sorted(possible_moves))]
+
+  def accept_doubling_cube(self):
+    return True
+
+
+class DeltaPlayer(Player):
+  """Picks the move that maximizes pip count delta.
+  """
+  def action(self, possible_moves):
+    if not len(possible_moves):
+      return [TurnAction.Pass]
+
+    boards_by_pip_delta = defaultdict(set)
+    for moves in possible_moves:
+      board = self.game.board.clone_apply_moves(moves)
+      pip_delta = board.pip_count()[self.color.opponent()] - board.pip_count()[self.color]
+      boards_by_pip_delta[pip_delta].add(moves)
+
+    possible_moves = boards_by_pip_delta[max(boards_by_pip_delta.keys())]
     return [TurnAction.Move, random.choice(sorted(possible_moves))]
 
   def accept_doubling_cube(self):
