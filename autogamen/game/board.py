@@ -155,13 +155,13 @@ class Board:
         return []
 
       moves = []
-      for d, die in enumerate(remaining_dice):
+      for d, die in enumerate(set(remaining_dice)):
         # Attempt to find moves on the board or bar. We're gonna do a little
         # sneaky thing and start at 0, which is Move.Bar, which will ensure that
         # we get pips off the bar before moving pips on the board. I'm sorry.
         # This is horrendously clever (and not even that smart), but it did
         # save a good bit of lines of code.
-        for point_number in range(0, 24):
+        for point_number in range(0, 25):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
             moves.append((move,))
