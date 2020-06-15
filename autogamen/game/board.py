@@ -1,5 +1,4 @@
 from collections import Counter, defaultdict
-import copy
 import itertools
 
 from .types import Color, Move
@@ -9,9 +8,9 @@ class Board:
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
 
-    self.points = points
-    self.bar = bar or {Color.White: 0, Color.Black: 0}
-    self.off = off or {Color.White: 0, Color.Black: 0}
+    self.points = [point.copy() for point in points]
+    self.bar = dict(bar or {Color.White: 0, Color.Black: 0})
+    self.off = dict(off or {Color.White: 0, Color.Black: 0})
 
   def pip_count(self):
     """Returns a dict of pip count (sum of distance from fully beared off) for each player
@@ -28,6 +27,14 @@ class Board:
 
     return counter
 
+  def clone_apply_moves(self, moves):
+    """Returns a deep copy of self with :moves: applied.
+    """
+    new_board = Board(self.points, self.bar, self.off)
+    for move in moves:
+      new_board.apply_move(move)
+
+    return new_board
 
   def can_bear_off(self, color):
     if self.bar[color] != 0:
@@ -170,8 +177,7 @@ class Board:
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
             moves.append((move,))
-            new_board = copy.deepcopy(board)
-            new_board.apply_move(move)
+            new_board = board.clone_apply_moves([move])
             for submoves in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
               moves.append((move,) + submoves)
 

@@ -33,6 +33,9 @@ class Point:
   def __eq__(self, other):
     return self.count == other.count and self.color == other.color
 
+  def copy(self):
+    return Point(self.count, self.color)
+
   def is_empty(self):
     return self.color is None
 
