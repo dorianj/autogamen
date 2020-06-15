@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 import copy
 import itertools
 
@@ -12,6 +12,22 @@ class Board:
     self.points = points
     self.bar = bar or {Color.White: 0, Color.Black: 0}
     self.off = off or {Color.White: 0, Color.Black: 0}
+
+  def pip_count(self):
+    """Returns a dict of pip count (sum of distance from fully beared off) for each player
+    """
+    counter = Counter()
+    for point_number in range(1,25):
+      point = self.point_at_number(point_number)
+      if point.color is not None:
+        distance = 25 - point_number if point.color == Color.White else point_number
+        counter[point.color] += point.count * distance
+
+    for color, pips in self.bar.items():
+      counter[color] += pips * 24
+
+    return counter
+
 
   def can_bear_off(self, color):
     if self.bar[color] != 0:

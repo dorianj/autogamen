@@ -411,6 +411,44 @@ class TestApplyMoves(unittest.TestCase):
 
     self.assertEqual(board.off[Color.White], 1)
 
+class TestPipCount(unittest.TestCase):
+  def test_single_white_pip(self):
+    board = Board(
+      repeat_point(1, 1, Color.White) +
+      repeat_point(23)
+    )
+    self.assertEqual(board.pip_count(), {
+      Color.Black: 0,
+      Color.White: 24
+    })
+
+  def test_single_black_pip(self):
+    board = Board(
+      repeat_point(1, 1, Color.Black) +
+      repeat_point(23)
+    )
+    self.assertEqual(board.pip_count(), {
+      Color.Black: 1,
+      Color.White: 0,
+    })
+
+  def test_single_barred_pip(self):
+    board = Board(
+      repeat_point(24)
+    )
+    board.add_bar(Color.White)
+    self.assertEqual(board.pip_count(), {
+      Color.Black: 0,
+      Color.White: 24,
+    })
+
+  def test_starting_board(self):
+    board = Board(default_starting_points)
+    self.assertEqual(board.pip_count(), {
+      Color.Black: 167,
+      Color.White: 167,
+    })
+
 class TestPerformance(unittest.TestCase):
   def test_double_roll_filled_board_performance(self):
     board = Board(
