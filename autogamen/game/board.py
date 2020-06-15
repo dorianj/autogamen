@@ -13,17 +13,6 @@ class Board:
     self.bar = bar or {Color.White: 0, Color.Black: 0}
     self.off = off or {Color.White: 0, Color.Black: 0}
 
-  def is_complete(self):
-    """Returns boolean indicating whether all pips are accounted for.
-    """
-    counts = defaultdict(int)
-    for point in self.points:
-      if point.color is not None:
-        counts[point.color] += point.count
-
-    # TODO: this doesn't cover points that are off the board
-    return list(counts.values()) == [15, 15]
-
   def can_bear_off(self, color):
     if self.bar[color] != 0:
       return False

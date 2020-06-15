@@ -128,10 +128,6 @@ class TestBoardValidation(unittest.TestCase):
     with self.assertRaises(Exception, msg="Raises for too-large board"):
       Board(default_starting_points + [Point(2, Color.Black)])
 
-    white_imbalanced_points = list(default_starting_points)
-    white_imbalanced_points[0] = Point(4, Color.White)
-    self.assertFalse(Board(white_imbalanced_points).is_complete())
-
 class TestBoardBearOff(unittest.TestCase):
   def test_can_bear_off_starting(self):
     board = Board(default_starting_points)
