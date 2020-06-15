@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import total_ordering
 import random
 
 
@@ -90,6 +91,7 @@ class TurnAction(Enum):
   Pass = 3
 
 
+@total_ordering
 class Move:
   # Bar's point number is 0, which is special. Board relies on this behavior
   # in possible_moves to avoid code duplication.
@@ -111,6 +113,12 @@ class Move:
       self.point_number == other.point_number and
       self.distance == other.distance and
       self.color == other.color
+    )
+
+  def __lt__(self, other):
+    return (
+      (self.point_number, self.distance, self.color) <
+      (other.point_number, other.distance, other.color)
     )
 
   def __hash__(self):
