@@ -23,13 +23,13 @@ class Match:
     self.current_game.run_turn()
 
     if self.current_game.winner:
-      turn_count = sum(game.turn_number for game in self.games)
-      print(f"Game ended! {self.current_game.winner.color} won with {self.current_game.points} points after {turn_count} turns")
+      print(f"Game ended! {self.current_game.winner.color} won with {self.current_game.points} points after {self.current_game.turn_number} turns")
       self.points[self.current_game.winner.color] += self.current_game.points
 
       if self.points[self.current_game.winner.color] >= self.point_goal:
+        turn_count = sum(game.turn_number for game in self.games)
         game_count = len(self.games)
-        print(f"Match ended! {self.current_game.winner.color} won with {self.points[self.current_game.winner.color]} points in {game_count} games")
+        print(f"Match ended! {self.current_game.winner.color} won with {self.points[self.current_game.winner.color]} points in {game_count} games with {turn_count} turns")
         for color, win_count in Counter(game.winner.color for game in self.games).items():
           print(f"{color} won {win_count} games ({win_count / game_count * 100}%)")
         return True
