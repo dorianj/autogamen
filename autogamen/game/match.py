@@ -23,7 +23,8 @@ class Match:
     self.current_game.run_turn()
 
     if self.current_game.winner:
-      print(f"Game ended! {self.current_game.winner.color} won with {self.current_game.points} points")
+      turn_count = sum(game.turn_number for game in self.games)
+      print(f"Game ended! {self.current_game.winner.color} won with {self.current_game.points} points after {turn_count} turns")
       self.points[self.current_game.winner.color] += self.current_game.points
 
       if self.points[self.current_game.winner.color] >= self.point_goal:
