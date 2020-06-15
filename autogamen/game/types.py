@@ -13,7 +13,7 @@ class Color(Enum):
       return Color.White
 
 
-class Point:
+class _Point:
   def __init__(self, count=0, color=None):
     if count != 0 and color is None:
       raise Exception("Color must be set for nonzero pip count.")
@@ -33,8 +33,11 @@ class Point:
   def __eq__(self, other):
     return self.count == other.count and self.color == other.color
 
-  def copy(self):
+  def mutable_copy(self):
     return Point(self.count, self.color)
+
+  def frozen_copy(self):
+    return FrozenPoint(self.count, self.color)
 
   def is_empty(self):
     return self.color is None
@@ -46,6 +49,13 @@ class Point:
     """Returns whether it's allowed to add here or hit here."""
     return self.is_empty() or self.can_hit(color) or (self.color == color)
 
+
+class FrozenPoint(_Point):
+  def __hash__(self):
+    return hash((self.color, self.count))
+
+
+class Point(_Point):
   def add(self, color):
     if self.color is None:
       self.color = color
