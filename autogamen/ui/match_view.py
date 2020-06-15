@@ -58,7 +58,10 @@ def display_board(board):
   from autogamen.game.types import Color
 
   match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
+  match.start()
   match.current_game.board = board
   match_view = MatchView(match)
   match_view.create_window()
-  match_view.run()
+  match_view.draw_chrome()
+  match_view.draw_board()
+  mainloop()
