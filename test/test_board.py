@@ -1,7 +1,7 @@
 import unittest
 import itertools
 
-from autogamen.game.board import Board
+from autogamen.game.board import Board, FrozenBoard
 from autogamen.game.types import Color, Dice, Move, Point
 from autogamen.ui.match_view import display_board
 
@@ -127,6 +127,23 @@ class TestBoardValidation(unittest.TestCase):
 
     with self.assertRaises(Exception, msg="Raises for too-large board"):
       Board(default_starting_points + [Point(2, Color.Black)])
+
+
+class TestFrozenBoard(unittest.TestCase):
+  def test_board_equality(self):
+    b1 = Board(list(default_starting_points))
+    b2 = FrozenBoard(list(default_starting_points))
+    self.assertEqual(b1, b1)
+
+  def test_frozen_board_hashable(self):
+    b1 = Board(list(default_starting_points))
+    b1.add_off(Color.White)
+    b1.add_bar(Color.Black)
+    b2 = Board(list(default_starting_points))
+    b2.add_off(Color.White)
+    b2.add_bar(Color.Black)
+    self.assertEqual(hash(b1.frozen_copy()), hash(b2.frozen_copy()))
+
 
 class TestBoardBearOff(unittest.TestCase):
   def test_can_bear_off_starting(self):

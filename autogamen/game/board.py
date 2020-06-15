@@ -3,14 +3,36 @@ import itertools
 
 from .types import Color, Move
 
-class Board:
+class _Board:
   def __init__(self, points, bar=None, off=None):
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
 
-    self.points = [point.copy() for point in points]
-    self.bar = dict(bar or {Color.White: 0, Color.Black: 0})
-    self.off = dict(off or {Color.White: 0, Color.Black: 0})
+    self.points = tuple(point.mutable_copy() for point in points)
+    self.bar = dict(bar or self._empty_color_counter())
+    self.off = dict(off or self._empty_color_counter())
+
+  def __eq__(self, other):
+    return (
+      self.points == other.points and
+      self.bar == other.bar and
+      self.off == other.off
+    )
+
+  def frozen_copy(self):
+    """Returns an immutable FrozenBoard copy of this object.
+    """
+    return FrozenBoard(self.points, self.bar, self.off)
+
+  def mutable_copy(self):
+    """Returns a mutable Board copy of this object.
+    """
+    return Board(self.points, self.bar, self.off)
+
+  def _empty_color_counter(self):
+    """Returns a dict with zeros for each color
+    """
+    return {Color.White: 0, Color.Black: 0}
 
   def pip_count(self):
     """Returns a dict of pip count (sum of distance from fully beared off) for each player
@@ -27,15 +49,6 @@ class Board:
 
     return counter
 
-  def clone_apply_moves(self, moves):
-    """Returns a deep copy of self with :moves: applied.
-    """
-    new_board = Board(self.points, self.bar, self.off)
-    for move in moves:
-      new_board.apply_move(move)
-
-    return new_board
-
   def can_bear_off(self, color):
     if self.bar[color] != 0:
       return False
@@ -49,9 +62,6 @@ class Board:
           return False
 
     return True
-
-  def add_off(self, color):
-    self.off[color] += 1
 
   def winner(self):
     """Returns the winning player's color, or None if no one has won
@@ -99,6 +109,15 @@ class Board:
 
     return self.points[point_number - 1]
 
+  def clone_apply_moves(self, moves):
+    """Returns a deep copy of self with :moves: applied.
+    """
+    new_board = self.mutable_copy()
+    for move in moves:
+      new_board.apply_move(move)
+
+    return new_board
+
   def move_is_valid(self, move):
     """Returns whether a single move is allowed, i.e. that if it would bear off,
        the player is currently allowed to bear off, that it doesn't try to hit
@@ -124,40 +143,6 @@ class Board:
       return self.can_bear_off(move.color)
     else:
       return destination_point().can_land(move.color)
-
-  def add_bar(self, color):
-    self.bar[color] += 1
-
-  def subtract_bar(self, color):
-    if self.bar[color] < 1:
-      raise Exception("Board.subtract_bar: bar is empty")
-
-    self.bar[color] -= 1
-
-  def apply_move(self, move):
-    """Mutate this board to apply :move:
-    """
-    if not self.move_is_valid(move):
-      raise Exception("Invalid move passed to apply_move")
-
-    # Subtract the source pip, wherever it may be
-    if move.point_number == Move.Bar:
-      self.subtract_bar(move.color)
-    else:
-      source_point = self.point_at_number(move.point_number)
-      source_point.subtract(move.color)
-
-    # Move this pip, either off or on the board
-    if move.destination_is_off():
-      self.add_off(move.color)
-    else:
-      destination_point = self.point_at_number(move.destination_point_number())
-
-      if destination_point.can_hit(move.color):
-        destination_point.hit(move.color)
-        self.add_bar(move.color.opponent())
-      else:
-        destination_point.add(move.color)
 
   def possible_moves(self, color, dice):
     """Returns the list of possible moves. Each item is a Set of Moves
@@ -197,3 +182,59 @@ class Board:
       raise Exception("Logic error: shouldn't have movesets with more moves than dice")
 
     return set(moveset for moveset in all_movesets if len(moveset) == longest_moveset)
+
+
+class FrozenBoard(_Board):
+  """An Immutable Board.
+  """
+  def __init__(self, points, bar=None, off=None):
+    if len(points) != 24:
+      raise Exception(f"{len(points)} board passed in.")
+
+    self.points = tuple(point.frozen_copy() for point in points)
+    self.bar = dict(bar or self._empty_color_counter())
+    self.off = dict(off or self._empty_color_counter())
+    self._hash = hash((self.points, tuple(self.bar.items()), tuple(self.off.items())))
+
+  def __hash__(self):
+    return self._hash
+
+
+class Board(_Board):
+  def add_off(self, color):
+    self.off[color] += 1
+
+  def add_bar(self, color):
+    self.bar[color] += 1
+
+  def subtract_bar(self, color):
+    if self.bar[color] < 1:
+      raise Exception("Board.subtract_bar: bar is empty")
+
+    self.bar[color] -= 1
+
+  def apply_move(self, move):
+    """Mutate this board to apply :move:
+    """
+    if not self.move_is_valid(move):
+      raise Exception("Invalid move passed to apply_move")
+
+    # Subtract the source pip, wherever it may be
+    if move.point_number == Move.Bar:
+      self.subtract_bar(move.color)
+    else:
+      source_point = self.point_at_number(move.point_number)
+      source_point.subtract(move.color)
+
+    # Move this pip, either off or on the board
+    if move.destination_is_off():
+      self.add_off(move.color)
+    else:
+      destination_point = self.point_at_number(move.destination_point_number())
+
+      if destination_point.can_hit(move.color):
+        destination_point.hit(move.color)
+        self.add_bar(move.color.opponent())
+      else:
+        destination_point.add(move.color)
+
