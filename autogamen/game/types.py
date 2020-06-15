@@ -128,12 +128,12 @@ class Move:
 class Dice:
   def __init__(self, count=2, roll=None):
     self.count = count
-    self.roll = roll or (random.randint(1,6), random.randint(1, 6))
+    self.roll = tuple(roll or (random.randint(1,6), random.randint(1, 6)))
 
   def effective_roll(self):
     """Returns a list of rolls; for doubles, they will be duplicated.
     """
     if self.roll[0] == self.roll[1]:
-      return [self.roll[0], self.roll[0], self.roll[0], self.roll[0]]
+      return (self.roll[0], self.roll[0], self.roll[0], self.roll[0])
     else:
       return self.roll
