@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from collections import Counter
 import argparse
 import logging
@@ -54,7 +55,11 @@ if __name__ == "__main__":
   players_cls = [globals()[f"{name}Player"] for name in (args.white, args.black)]
 
   # Run the matches.
-  matches = [_run_match(*players_cls, args.match_points) for i in range(0, args.matches)]
+  def _run_single_match(_):
+    return _run_match(*players_cls, args.match_points)
+
+  with Pool(processes=args.parallelism) as pool:
+    matches = pool.map(_run_single_match, range(0, args.matches))
 
   # Print results
   print(f"{sum(len(match.games) for match in matches)} games finished:")
