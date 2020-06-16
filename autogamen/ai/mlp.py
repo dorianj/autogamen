@@ -21,13 +21,14 @@ class Net(nn.Module):
 
   hidden_neurons = 28
 
-  def __init__(self):
+  def __init__(self, weights):
     super().__init__()
     self.layers = nn.Sequential(
       nn.Linear(28, self.hidden_neurons),
       nn.Sigmoid(),
       nn.Linear(self.hidden_neurons, 4)
     )
+    self.weights = weights # TODO: apply weights
 
   def vectorize_board(self, board):
     board_state = [point.count * (1 if point.color == Color.White else -1)
@@ -41,13 +42,33 @@ class Net(nn.Module):
   def forward(self, x):
     return self.layers(x)
 
+  def breed(self, other):
+    """Combine weights with :other: Net, returns a new Net
+    """
+    return Net(list(self.weights))
+
+  def mutate(self, factor):
+    """Randomly change weights; returns a new Net
+    """
+    new_weights = list(self.weights)
+    return Net(new_weights)
+
+
+  @classmethod
+  def random_net(cls):
+    return Net([
+      torch.randn(28),
+      torch.randn(cls.hidden_neurons),
+      torch.randn(4),
+    ])
+
 
 class MLPPlayer(Player):
   """Picks a random move every time.
   """
-  def __init__(self, color):
+  def __init__(self, color, net):
     super().__init__(color)
-    self.net = Net()
+    self.net = net
 
   def score_board(self, board):
     weights = self.net(self.net.vectorize_board(board))
@@ -78,3 +99,6 @@ class MLPPlayer(Player):
 
   def accept_doubling_cube(self):
     return False
+
+  ##
+
