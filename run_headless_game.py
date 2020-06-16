@@ -6,6 +6,7 @@ import random
 import sys
 
 from autogamen.ai.simple import BozoPlayer, DeltaPlayer, RunningPlayer
+from autogamen.ai.mlp import MLPPlayer
 from autogamen.game.match import Match
 from autogamen.game.types import Color
 
@@ -17,12 +18,20 @@ parser.add_argument("--matches", help="Number of matches to play", default=1, ty
 parser.add_argument("--parallelism", help="Number processes to use", default=1, type=int)
 parser.add_argument("--seed", help="Random seed, for determistic testing", type=int)
 parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)", default="info")
-
+args = parser.parse_args()
 
 def _fmt_percent(p):
   return "{0:.1%}".format(p)
 
-def _run_match(white_player_cls, black_player_cls, point_limit):
+def run_match_args(a):
+  numeric_level = getattr(logging, args.verbosity.upper(), None)
+  if not isinstance(numeric_level, int):
+    raise ValueError('Invalid log level: %s' % loglevel)
+  logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
+
+  return run_match(*a)
+
+def run_match(white_player_cls, black_player_cls, point_limit):
   match = Match([white_player_cls(Color.White), black_player_cls(Color.Black)], point_limit)
   match.start_game()
   while True:
@@ -39,8 +48,6 @@ def _run_match(white_player_cls, black_player_cls, point_limit):
         match.start_game()
 
 if __name__ == "__main__":
-  args = parser.parse_args()
-
   # Housekeeping: log levels
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
@@ -55,11 +62,9 @@ if __name__ == "__main__":
   players_cls = [globals()[f"{name}Player"] for name in (args.white, args.black)]
 
   # Run the matches.
-  def _run_single_match(_):
-    return _run_match(*players_cls, args.match_points)
-
   with Pool(processes=args.parallelism) as pool:
-    matches = pool.map(_run_single_match, range(0, args.matches))
+    a = [(players_cls[0], players_cls[1], args.match_points) for i in range(0, args.matches)]
+    matches = pool.map(run_match_args, a)
 
   # Print results
   print(f"{sum(len(match.games) for match in matches)} games finished:")
