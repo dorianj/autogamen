@@ -38,8 +38,8 @@ class Game:
     # Player state tracking. Immutable.
     self.players = {player.color: player for player in players}
 
-    if len(players) != 2 or list(self.players.keys()) != list(Color):
-      raise Exception("Game constructor: Invalid players provided")
+    if len(players) != 2 or set(self.players.keys()) != set(Color):
+      raise Exception(f"Game constructor: Invalid players provided: {self.players}")
 
     # Turn tracking, will by initialized by start() and mutated by run_turn()
     self.active_color = None
