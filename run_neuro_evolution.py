@@ -1,11 +1,14 @@
-from multiprocessing import Pool
 from collections import Counter
+from datetime import datetime
+from multiprocessing import Pool
 import argparse
 import itertools
 import logging
+import math
+import os.path
+import pickle
 import random
 import sys
-import math
 
 from autogamen.ai.mlp import MLPPlayer, Net
 from autogamen.game.match import Match
@@ -18,6 +21,7 @@ parser.add_argument("--parallelism", help="Number processes to use", default=1, 
 parser.add_argument("--mutation", help="Mutation rate", default=0.05, type=float)
 parser.add_argument("--crossover", help="Percent of generation comprised of children", default=0.8, type=float)
 parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)", default="info")
+
 args = parser.parse_args()
 
 def _fmt_percent(p):
@@ -89,6 +93,15 @@ def run_match(white_player, black_player):
         match.start_game()
 
 
+def net_directory():
+  return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'nets')
+
+
+def write_net_to_file(nets, path):
+  with open(path, 'wb') as fp:
+    pickle.dump([net.weights for net in nets], fp)
+
+
 if __name__ == "__main__":
   # Housekeeping: log levels
   numeric_level = getattr(logging, args.verbosity.upper(), None)
@@ -99,12 +112,15 @@ if __name__ == "__main__":
   if args.population % 2 == 1:
     raise Exception("--population must be even")
 
+  run_timestamp = datetime.now().isoformat()
   print(f"Running evolution with {args.generations} generations and population "
-        f"{args.population}, for a total of {args.generations * args.population // 2} games")
+        f"{args.population}, for a total of {args.generations * args.population // 2} games. "
+        f" Writing results to timestamp {run_timestamp}")
 
   # Run the generations.
   nets = [Net.random_net() for n in range(0, args.population)]
   for gen in range(0, args.generations):
     nets = run_generation(gen, nets)
+    write_net_to_file(nets, os.path.join(net_directory(), f"net-{run_timestamp}-{gen}.pickle"))
 
   sys.exit(0)
