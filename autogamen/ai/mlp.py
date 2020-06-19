@@ -25,7 +25,6 @@ class Net(nn.Module):
       nn.Linear(self.hidden_neurons, 1)
     )
 
-    torch.autograd.set_detect_anomaly(True)
     self.lambda_ = 0.5
     self.eligibility_traces = [
       torch.zeros(weights.shape, requires_grad=False)
