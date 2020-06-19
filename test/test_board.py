@@ -471,6 +471,40 @@ class TestPipCount(unittest.TestCase):
       Color.White: 167,
     })
 
+
+class TestFrozenBoard(unittest.TestCase):
+  def test_apply_move_identical(self):
+    cases = [
+      default_starting_points,
+      white_can_bear_off_points,
+      white_perfect_prime_points,
+      white_almost_done_points,
+    ]
+
+    def test_case(color, points, bar=None, off=None):
+      board = Board(points, bar, off)
+      frozen_board = FrozenBoard(points, bar, off)
+
+      self.assertEqual(board, frozen_board)
+
+      # Pick a random few possible moves and test
+      for dice in (Dice(roll=(1,2)), Dice(roll=(4,5))):
+        for moves, after_board in sorted(board.possible_moves(color, dice))[:10]:
+          new_frozen_board = frozen_board.clone_apply_moves(moves)
+          new_board = board.mutable_copy()
+          for move in moves:
+            new_board.apply_move(move)
+
+          self.assertEqual(new_board, new_frozen_board)
+          self.assertEqual(new_board, after_board)
+
+    for points in cases:
+      test_case(Color.White, points)
+      test_case(Color.Black, points)
+      test_case(Color.White, points, {Color.White: 1, Color.Black: 1})
+      test_case(Color.Black, points, {Color.White: 1, Color.Black: 0})
+
+
 class TestPerformance(unittest.TestCase):
   def test_double_roll_filled_board_performance(self):
     board = Board(
@@ -479,4 +513,4 @@ class TestPerformance(unittest.TestCase):
       repeat_point(20)
     )
     with assertRuntime(self, 0.1):
-      board.possible_moves(Color.White, Dice(roll=[2,2]))
+      board.possible_moves(Color.White, Dice(roll=(2,2)))
