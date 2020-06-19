@@ -103,7 +103,7 @@ class MLPPlayer(Player):
   def p(self, board):
     return self.net(self.net.vectorize_board(board, self.color))
 
-  def score(self, p):
+  def win_probability(self, p):
     [white_wins] = p
     if self.color == Color.White:
       return white_wins
@@ -129,14 +129,10 @@ class MLPPlayer(Player):
       for board, moves in moves_by_board.items()
     ]
 
-    # argmax according to score
-    sorted_boards = sorted(
+    best_p, best_board, best_move = max(
       scored_boards,
-      key=lambda i: self.score(i[0]),
-      reverse=self.color == Color.Black
+      key=lambda i: self.win_probability(i[0])
     )
-
-    best_p, best_board, best_move = sorted_boards[0]
 
     if self.learning:
       reward = None
