@@ -19,9 +19,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--games", help="Number of games to play", default=10, type=int)
 parser.add_argument("--checkpoint", help="Save model after this many training games", default=1000, type=int)
 parser.add_argument("--alpha", help="Learning rate", default=0.1, type=float)
+parser.add_argument("--profile", help="Run Python profiler", default=False, type=bool)
 parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)", default="info")
-
 args = parser.parse_args()
+
 
 def _fmt_percent(p):
   return "{0:.1%}".format(p)
@@ -47,6 +48,11 @@ def run_game(white, black, net):
 
 
 if __name__ == "__main__":
+  if args.profile:
+    import cProfile, pstats, io
+    pr = cProfile.Profile()
+    pr.enable()
+
   run_timestamp = datetime.now().isoformat()
   print(f"Running learning for {args.games} games, checkpointing every "
         f"{args.checkpoint} games to timestamp {run_timestamp}")
@@ -68,4 +74,12 @@ if __name__ == "__main__":
     run_game(white, black, net)
 
   print(f"Finished, {(time.perf_counter() - start_time) / args.games}s per game")
+
+  if args.profile:
+    pr.disable()
+    s = io.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats(pstats.SortKey.TIME)
+    ps.print_stats(0.2)
+    print(s.getvalue())
+
   sys.exit(0)
