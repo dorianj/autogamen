@@ -2,7 +2,7 @@ from collections import defaultdict
 import random
 
 import torch
-from torch.autograd import Variable
+import torch.autograd
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -11,46 +11,87 @@ from autogamen.game.types import Color, TurnAction
 
 
 class Net(nn.Module):
-  """
-    Inputs:
-      * 24: One per point, negative for black and white for white
-      * 2: One per player, count on bar
-      * 2: One per player, count beared off
-    Outputs: 4, probability white or black wins or with a gammon
-  """
-
-  input_neurons = 190
-  hidden_neurons = 20
+  input_neurons = 198
+  hidden_neurons = 50
+  learning_rate = 0.1
 
   def __init__(self):
     super().__init__()
     self.layers = nn.Sequential(
       nn.Linear(self.input_neurons, self.hidden_neurons),
       nn.Sigmoid(),
-      nn.Linear(28, self.hidden_neurons),
+      nn.Linear(self.hidden_neurons, self.hidden_neurons),
       nn.Sigmoid(),
-      nn.Linear(self.hidden_neurons, 4)
+      nn.Linear(self.hidden_neurons, 1)
     )
 
-    with torch.no_grad():
-      print(f"layers@0: {self.layers[0]}")
+    torch.autograd.set_detect_anomaly(True)
+    self.lambda_ = 0.5
+    self.eligibility_traces = [
+      torch.zeros(weights.shape, requires_grad=False)
+      for weights in list(self.parameters())
+    ]
 
+    for param in self.parameters():
+      nn.init.zeros_(param)
 
-  def vectorize_board(self, board):
-    # TODO: change this
-    board_state = [point.count * (1 if point.color == Color.White else -1)
-                   for point in board.points]
-    for color in Color:
-      board_state.append(board.off[color])
-      board_state.append(board.bar[color])
+  def vectorize_board(self, board, active_color):
+    out = []
+    for point in board.points:
+      val = [
+        1 if point.count >= 1 else 0,
+        1 if point.count >= 2 else 0,
+        1 if point.count >= 3 else 0,
+        (point.count - 3) / 2,
+      ]
+      empty = [0, 0, 0, 0]
 
-    return torch.FloatTensor(board_state)
+      if point.color == Color.White:
+        out.extend(val)
+        out.extend(empty)
+      elif point.color == Color.Black:
+        out.extend(empty)
+        out.extend(val)
+      else:
+        out.extend(empty)
+        out.extend(empty)
+
+    out.append(1 if active_color == Color.White else 0)
+    out.append(1 if active_color == Color.Black else 0)
+
+    out.append(board.off[Color.White])
+    out.append(board.off[Color.Black])
+
+    out.append(board.bar[Color.White])
+    out.append(board.bar[Color.Black])
+
+    if len(out) != self.input_neurons:
+      raise Exception("vectorize_board is broken")
+
+    return torch.FloatTensor(out)
 
   def forward(self, x):
     return self.layers(x)
 
   def update_weights(self, p, p_next):
-    pass
+    print(p, p_next)
+    self.zero_grad()
+
+    p.backward()
+
+    with torch.no_grad():
+      td_error = p_next - p
+
+      params = list(self.parameters())
+
+      for i, weights in enumerate(params):
+        self.eligibility_traces[i] = self.lambda_ * self.eligibility_traces[i] + weights.grad
+
+        # w <- w + alpha * td_error * z
+        new_weights = weights + self.learning_rate * td_error * self.eligibility_traces[i]
+        weights.copy_(new_weights)
+
+    return td_error
 
 
 class MLPPlayer(Player):
@@ -62,14 +103,14 @@ class MLPPlayer(Player):
     self.learning = learning
 
   def p(self, board):
-    return self.net(self.net.vectorize_board(board))
+    return self.net(self.net.vectorize_board(board, self.color))
 
   def score(self, p):
-    [white_wins, black_wins, white_gammons, black_gammons] = p
+    [white_wins] = p
     if self.color == Color.White:
-      return white_wins * 1 + white_gammons * 2
+      return white_wins
     else:
-      return black_wins * 1 + black_gammons * 2
+      return 1 - white_wins
 
   def action(self, possible_moves):
     if not len(possible_moves):
@@ -78,31 +119,37 @@ class MLPPlayer(Player):
     if self.learning:
       p = self.p(self.game.board)
 
-    possible_boards = set((self.game.board.clone_apply_moves(moves).frozen_copy(), moves)
-                          for moves in possible_moves)
+    # Dedupe moves into materialized boards
+    possible_boards = set(
+      (self.game.board.clone_apply_moves(moves).frozen_copy(), moves)
+      for moves in possible_moves
+    )
 
-    best_score = -10000
-    best_p = None
-    best_moves = None
-    for (board, moves) in possible_boards:
-      p = self.p(board)
-      score = self.score(p)
-      if score > best_score:
-        best_score = score
-        best_moves = moves
-        best_p = p
+    # Score the boards by the neural net
+    scored_boards = [
+      (self.p(board), board, move)
+      for board, move in possible_boards
+    ]
+
+    # argmax according to color
+    sorted_boards = sorted(
+      scored_boards,
+      key=lambda i: i[0],
+      reverse=self.color == Color.Black
+    )
+
+    best_p, best_board, best_move = sorted_boards[0]
 
     if self.learning:
-      self.net.update_weights(p, p_next)
+      reward = None
+      if best_board.winner() is not None:
+        reward = 1 if self.color == Color.White else 0
+      else:
+        reward = best_p
 
-    return [TurnAction.Move, best_moves]
+      self.net.update_weights(p, reward)
+
+    return [TurnAction.Move, best_move]
 
   def accept_doubling_cube(self):
     return False
-
-  def end_game(self, game):
-    super().end_game(game)
-
-    if self.learning:
-      """TODO"""
-

@@ -8,6 +8,7 @@ import os.path
 import pickle
 import random
 import sys
+import time
 
 from autogamen.ai.mlp import MLPPlayer, Net
 from autogamen.game.game import Game
@@ -41,13 +42,13 @@ def run_game(white, black, net):
 
   for turn_number in itertools.count():
     game.run_turn()
-    if game.winner:
+    if game.winner is not None:
       return
 
 
 if __name__ == "__main__":
   run_timestamp = datetime.now().isoformat()
-  print(f"Running learning for {args.games} games Checkpointing every "
+  print(f"Running learning for {args.games} games, checkpointing every "
         f"{args.checkpoint} games to timestamp {run_timestamp}")
 
   # Housekeeping: log levels
@@ -56,14 +57,15 @@ if __name__ == "__main__":
     raise ValueError('Invalid log level: %s' % loglevel)
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
+  start_time = time.perf_counter()
   net = Net()
   [white, black] = [MLPPlayer(Color.White, net, True), MLPPlayer(Color.Black, net, True)]
   for i in range(0, args.games + 1):
-    if i % args.checkpoint:
+    if i > 0 and i % args.checkpoint == 0:
       print(f"Checkpointing at {i}")
-      write_net_to_file(nets, os.path.join(net_directory(), f"net-{run_timestamp}-{gen}.pickle"))
+      #write_net_to_file(nets, os.path.join(net_directory(), f"net-{run_timestamp}-{gen}.pickle"))
 
     run_game(white, black, net)
 
-
+  print(f"Finished, {(time.perf_counter() - start_time) / args.games}s per game")
   sys.exit(0)
