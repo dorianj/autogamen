@@ -419,7 +419,7 @@ class TestApplyMoves(unittest.TestCase):
       repeat_point(22)
     )
     board.apply_move(Move(Color.White, 1, 1))
-    self.assertEqual(board.bar[Color.Black], 1)
+    self.assertEqual(board.bar[Color.Black.value], 1)
 
   def test_bear_off_and_hit(self):
     board = Board(
@@ -428,10 +428,10 @@ class TestApplyMoves(unittest.TestCase):
       [Point(1, Color.Black)]
     )
     board.apply_move(Move(Color.White, 23, 1))
-    self.assertEqual(board.bar[Color.Black], 1)
+    self.assertEqual(board.bar[Color.Black.value], 1)
     board.apply_move(Move(Color.White, 24, 1))
 
-    self.assertEqual(board.off[Color.White], 1)
+    self.assertEqual(board.off[Color.White.value], 1)
 
 class TestPipCount(unittest.TestCase):
   def test_single_white_pip(self):
@@ -490,7 +490,7 @@ class TestFrozenBoard(unittest.TestCase):
       # Pick a random few possible moves and test
       for dice in (Dice(roll=(1,2)), Dice(roll=(4,5))):
         for moves, after_board in sorted(board.possible_moves(color, dice))[:10]:
-          new_frozen_board = frozen_board.clone_apply_moves(moves)
+          new_frozen_board = frozen_board.copy_apply_moves(moves)
           new_board = board.mutable_copy()
           for move in moves:
             new_board.apply_move(move)
@@ -501,8 +501,8 @@ class TestFrozenBoard(unittest.TestCase):
     for points in cases:
       test_case(Color.White, points)
       test_case(Color.Black, points)
-      test_case(Color.White, points, {Color.White: 1, Color.Black: 1})
-      test_case(Color.Black, points, {Color.White: 1, Color.Black: 0})
+      test_case(Color.White, points, Board.color_counter({Color.White: 1, Color.Black: 1}))
+      test_case(Color.Black, points, Board.color_counter({Color.White: 1, Color.Black: 0}))
 
 
 class TestPerformance(unittest.TestCase):

@@ -58,11 +58,11 @@ class Net(nn.Module):
     out.append(1 if active_color == Color.White else 0)
     out.append(1 if active_color == Color.Black else 0)
 
-    out.append(board.off[Color.White])
-    out.append(board.off[Color.Black])
+    out.append(board.off[Color.White.value])
+    out.append(board.off[Color.Black.value])
 
-    out.append(board.bar[Color.White])
-    out.append(board.bar[Color.Black])
+    out.append(board.bar[Color.White.value])
+    out.append(board.bar[Color.Black.value])
 
     if len(out) != self.input_neurons:
       raise Exception("vectorize_board is broken")

@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 import itertools
 
-from .types import Color, Move
+from .types import Color, FrozenPoint, Move
 
 class _Board:
   def __init__(self, points, bar=None, off=None):
@@ -9,19 +9,23 @@ class _Board:
       raise Exception(f"{len(points)} board passed in.")
 
     self.points = tuple(point.mutable_copy() for point in points)
-    self.bar = dict(bar or self._empty_color_counter())
-    self.off = dict(off or self._empty_color_counter())
+    self.bar = list(bar or self.color_counter())
+    self.off = list(off or self.color_counter())
 
   def __eq__(self, other):
     return (
-      self.points == other.points and
-      self.bar == other.bar and
-      self.off == other.off
+      all(self.bar[color.value] == other.bar[color.value] and
+          self.off[color.value] == other.off[color.value]
+          for color in Color) and
+      self.points == other.points
     )
 
   def frozen_copy(self):
     """Returns an immutable FrozenBoard copy of this object.
     """
+    if isinstance(self, FrozenBoard):
+      return self
+
     return FrozenBoard(self.points, self.bar, self.off)
 
   def mutable_copy(self):
@@ -29,10 +33,17 @@ class _Board:
     """
     return Board(self.points, self.bar, self.off)
 
-  def _empty_color_counter(self):
-    """Returns a dict with zeros for each color
+  @staticmethod
+  def color_counter(count_dict=None):
+    """Returns an object representing off or bar
     """
-    return {Color.White: 0, Color.Black: 0}
+    if count_dict is None:
+      return [0, 0]
+    else:
+      c = [0, 0]
+      for color in Color:
+        c[color.value] = count_dict.get(color, 0)
+      return c
 
   def visual_str_repr(self):
     rows = ["", "", ""]
@@ -44,8 +55,8 @@ class _Board:
       rows[1] += " " + ("B" if point.color == Color.Black else "W") + " "
       rows[2] += (f"{point_number:>2} ")
 
-    rows.append(f"Bar: W:{self.bar[Color.White]}, B:{self.bar[Color.Black]}")
-    rows.append(f"Off: W:{self.off[Color.White]}, B:{self.off[Color.Black]}")
+    rows.append(f"Bar: W:{self.bar[Color.White.value]}, B:{self.bar[Color.Black.value]}")
+    rows.append(f"Off: W:{self.off[Color.White.value]}, B:{self.off[Color.Black.value]}")
 
     return "\n".join(rows)
 
@@ -60,13 +71,13 @@ class _Board:
         distance = 25 - point_number if point.color == Color.White else point_number
         counter[point.color] += point.count * distance
 
-    for color, pips in self.bar.items():
-      counter[color] += pips * 24
+    for color in Color:
+      counter[color] += self.bar[color.value] * 24
 
     return counter
 
   def can_bear_off(self, color):
-    if self.bar[color] != 0:
+    if self.bar[color.value] != 0:
       return False
 
     home_range = self.home_board_range(color)
@@ -82,8 +93,8 @@ class _Board:
   def winner(self):
     """Returns the winning player's color, or None if no one has won
     """
-    for color, pips in self.off.items():
-      if pips == 15:
+    for color in Color:
+      if self.off[color.value] == 15:
         return color
 
     return None
@@ -96,8 +107,8 @@ class _Board:
       raise Exception("winner_stakes isn't valid unless a win occurs")
 
     opponent = winner.opponent()
-    opponent_pips_off = self.off[opponent]
-    opponent_pips_on_bar = self.bar[opponent]
+    opponent_pips_off = self.off[opponent.value]
+    opponent_pips_on_bar = self.bar[opponent.value]
     oppponen_pips_in_winner_home = sum(
       self.point_at_number(point_number).count
       for point_number in range(*self.home_board_range(winner)))
@@ -125,14 +136,41 @@ class _Board:
 
     return self.points[point_number - 1]
 
-  def clone_apply_moves(self, moves):
-    """Returns a deep copy of self with :moves: applied.
+  def copy_apply_moves(self, moves):
+    """Returns a frozen copy of self with :moves: applied. Less readable than
+       Board.apply_move, but more performant. Note that all moves must have the
+       same color, if that invariant isn't held behavior is undefined.
     """
-    new_board = self.mutable_copy()
-    for move in moves:
-      new_board.apply_move(move)
+    new_bar = list(self.bar)
+    new_off = list(self.off)
+    new_points = list(self.points)
 
-    return new_board
+    for move in moves:
+      # Subtract the source pip, wherever it may be
+      if move.point_number == Move.Bar:
+        new_bar[move.color.value] -= 1
+      else:
+        source_point = new_points[move.point_number - 1]
+        if isinstance(source_point, FrozenPoint):
+          new_points[move.point_number - 1] = source_point = source_point.mutable_copy()
+
+        source_point.subtract(move.color)
+
+      # Move this pip, either off or on the board
+      if move.destination_is_off:
+        new_off[move.color.value] += 1
+      else:
+        dest_point = new_points[move.destination_point_number - 1]
+        if isinstance(dest_point, FrozenPoint):
+          new_points[move.destination_point_number - 1] = dest_point = dest_point.mutable_copy()
+
+        if dest_point.can_hit(move.color):
+          new_bar[move.color.opponent().value] += 1
+          dest_point.hit(move.color)
+        else:
+          dest_point.add(move.color)
+
+    return FrozenBoard(new_points, new_bar, new_off)
 
   def move_is_valid(self, move):
     """Returns whether a single move is allowed, i.e. that if it would bear off,
@@ -145,10 +183,10 @@ class _Board:
 
     # This is coming off of the bar.
     if move.point_number == Move.Bar:
-      return self.bar[move.color] > 0 and destination_point().can_land(move.color)
+      return self.bar[move.color.value] > 0 and destination_point().can_land(move.color)
 
     # If this color has anything on the bar, can't move on the board
-    if self.bar[move.color] > 0:
+    if self.bar[move.color.value] > 0:
       return False
 
     source_point = self.point_at_number(move.point_number)
@@ -173,7 +211,7 @@ class _Board:
         for point_number in range(0, 25):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
-            new_board = board.clone_apply_moves([move]).frozen_copy()
+            new_board = board.copy_apply_moves([move]).frozen_copy()
             moves.add(((move,), new_board))
             for submoves, subboard in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
               moves.add(((move,) + submoves, subboard))
@@ -203,9 +241,9 @@ class FrozenBoard(_Board):
       raise Exception(f"{len(points)} board passed in.")
 
     self.points = tuple(point.frozen_copy() for point in points)
-    self.bar = dict(bar or self._empty_color_counter())
-    self.off = dict(off or self._empty_color_counter())
-    self._hash = hash((self.points, tuple(self.bar.items()), tuple(self.off.items())))
+    self.bar = tuple(bar or Board.color_counter())
+    self.off = tuple(off or Board.color_counter())
+    self._hash = hash((self.points, self.bar, self.off))
 
   def __hash__(self):
     return self._hash
@@ -213,16 +251,16 @@ class FrozenBoard(_Board):
 
 class Board(_Board):
   def add_off(self, color):
-    self.off[color] += 1
+    self.off[color.value] += 1
 
   def add_bar(self, color):
-    self.bar[color] += 1
+    self.bar[color.value] += 1
 
   def subtract_bar(self, color):
-    if self.bar[color] < 1:
+    if self.bar[color.value] < 1:
       raise Exception("Board.subtract_bar: bar is empty")
 
-    self.bar[color] -= 1
+    self.bar[color.value] -= 1
 
   def apply_move(self, move):
     """Mutate this board to apply :move:
