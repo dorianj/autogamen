@@ -135,8 +135,8 @@ class _Board:
     if self.bar[move.color] > 0:
       return False
 
-    # Must have at least one of own color to move
-    if source_point().is_empty() or source_point().color != move.color:
+    source_point = self.point_at_number(move.point_number)
+    if source_point.color != move.color or source_point.count == 0:
       return False
     elif move.destination_is_off:
       return self.can_bear_off(move.color)

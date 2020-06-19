@@ -15,15 +15,18 @@ class Color(Enum):
 
 
 class _Point:
+  __slots__ = ['count', 'color']
   def __init__(self, count=0, color=None):
-    if count != 0 and color is None:
-      raise Exception("Color must be set for nonzero pip count.")
-
-    if count == 0 and color is not None:
-      raise Exception("Color can't be set for zero pip count.")
-
     self.count = count
     self.color = color
+
+  def validate(self):
+    # Not called by constructor for better performance
+    if self.count != 0 and self.color is None:
+      raise Exception("Color must be set for nonzero pip count.")
+
+    if self.count == 0 and self.color is not None:
+      raise Exception("Color can't be set for zero pip count.")
 
   def __str__(self):
     if self.color is None:
@@ -38,7 +41,10 @@ class _Point:
     return Point(self.count, self.color)
 
   def frozen_copy(self):
-    return FrozenPoint(self.count, self.color)
+    if type(self) is FrozenPoint:
+      return self
+    else:
+      return FrozenPoint(self.count, self.color)
 
   def is_empty(self):
     return self.color is None
@@ -53,7 +59,7 @@ class _Point:
 
 class FrozenPoint(_Point):
   def __hash__(self):
-    return hash((self.color, self.count))
+    return ((1 if self.color == Color.Black else 2) << 3) + self.count
 
 
 class Point(_Point):
