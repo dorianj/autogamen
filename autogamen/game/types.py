@@ -30,9 +30,12 @@ class _Point:
 
   def __str__(self):
     if self.color is None:
-      return "(Empty Point)"
+      return "<Empty Point>"
     else:
-      return f"(Point {self.color}/{self.count})"
+      return f"<Point {self.color}/{self.count}>"
+
+  def __repr__(self):
+    return self.__str__()
 
   def __eq__(self, other):
     return self.count == other.count and self.color == other.color
@@ -114,7 +117,7 @@ class Move:
   def __str__(self):
     source = "bar" if self.point_number is Move.Bar else self.point_number
     destination = "bar" if self.destination_is_off else self.destination_point_number
-    return f"({source}+{self.distance} -> {destination})"
+    return f"<{source}+{self.distance} -> {destination}>"
 
   def __eq__(self, other):
     return (

@@ -34,6 +34,22 @@ class _Board:
     """
     return {Color.White: 0, Color.Black: 0}
 
+  def visual_str_repr(self):
+    rows = ["", "", ""]
+    height = 5
+    columns = []
+    for point_number in range(1, 25):
+      point = self.point_at_number(point_number)
+      rows[0] += (f"{point.count:>2} ")
+      rows[1] += " " + ("B" if point.color == Color.Black else "W") + " "
+      rows[2] += (f"{point_number:>2} ")
+
+    rows.append(f"Bar: W:{self.bar[Color.White]}, B:{self.bar[Color.Black]}")
+    rows.append(f"Off: W:{self.off[Color.White]}, B:{self.off[Color.Black]}")
+
+    return "\n".join(rows)
+
+
   def pip_count(self):
     """Returns a dict of pip count (sum of distance from fully beared off) for each player
     """
