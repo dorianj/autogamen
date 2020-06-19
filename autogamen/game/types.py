@@ -4,8 +4,8 @@ import random
 
 
 class Color(Enum):
-  White = 1
-  Black = 2
+  White = 0
+  Black = 1
 
   def opponent(self):
     if self == Color.White:
