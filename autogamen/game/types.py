@@ -97,15 +97,17 @@ class Move:
   # in possible_moves to avoid code duplication.
   Bar = 0
 
-
   def __init__(self, color, point_number, distance):
     self.point_number = point_number
     self.distance = distance
     self.color = color
 
+    self.destination_is_off = self._destination_is_off()
+    self.destination_point_number = None if self.destination_is_off else self._destination_point_number()
+
   def __str__(self):
     source = "bar" if self.point_number is Move.Bar else self.point_number
-    destination = "bar" if self.destination_is_off() else self._destination_point_number()
+    destination = "bar" if self.destination_is_off else self.destination_point_number
     return f"({source}+{self.distance} -> {destination})"
 
   def __eq__(self, other):
@@ -137,14 +139,9 @@ class Move:
 
     return effective_start + self.distance * direction
 
-  def destination_is_off(self):
+  def _destination_is_off(self):
     return self._destination_point_number() > 24 or self._destination_point_number() <= 0
 
-  def destination_point_number(self):
-    if self.destination_is_off():
-      raise Exception("Move: Can't get destination point if into bar")
-
-    return self._destination_point_number()
 
 class Dice:
   def __init__(self, count=2, roll=None):

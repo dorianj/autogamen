@@ -124,9 +124,8 @@ class _Board:
        a block, that it is coming from a non-empty space, etc.
     """
 
-    # These may be incalcuable, so lazily compute them
-    destination_point = lambda: self.point_at_number(move.destination_point_number())
-    source_point = lambda: self.point_at_number(move.point_number)
+    # This may be incalcuable, so lazily compute it
+    destination_point = lambda: self.point_at_number(move.destination_point_number)
 
     # This is coming off of the bar.
     if move.point_number == Move.Bar:
@@ -139,7 +138,7 @@ class _Board:
     # Must have at least one of own color to move
     if source_point().is_empty() or source_point().color != move.color:
       return False
-    elif move.destination_is_off():
+    elif move.destination_is_off:
       return self.can_bear_off(move.color)
     else:
       return destination_point().can_land(move.color)
@@ -223,10 +222,10 @@ class Board(_Board):
       source_point.subtract(move.color)
 
     # Move this pip, either off or on the board
-    if move.destination_is_off():
+    if move.destination_is_off:
       self.add_off(move.color)
     else:
-      destination_point = self.point_at_number(move.destination_point_number())
+      destination_point = self.point_at_number(move.destination_point_number)
 
       if destination_point.can_hit(move.color):
         destination_point.hit(move.color)
