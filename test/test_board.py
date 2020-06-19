@@ -119,6 +119,9 @@ white_almost_done_points = [
 ]
 
 
+def extract_moves(moves_and_boards):
+  return set(m[0] for m in moves_and_boards)
+
 
 class TestBoardValidation(unittest.TestCase):
   def test_constructor_invalid_inputs(self):
@@ -175,7 +178,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(13)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,2))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,2)))),
       set([
         (Move(Color.White, 11, 1), Move(Color.White, 12, 2)),
         (Move(Color.White, 11, 2), Move(Color.White, 13, 1)),
@@ -189,7 +192,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(13)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,2))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,2)))),
       set([
         (Move(Color.White, 11, 1), Move(Color.White, 12, 2)),
         (Move(Color.White, 11, 2), Move(Color.White, 13, 1)),
@@ -203,7 +206,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(13)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(2,2))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(2,2)))),
       set([
         (Move(Color.White, 11, 2), Move(Color.White, 13, 2),
          Move(Color.White, 15, 2), Move(Color.White, 17, 2)),
@@ -218,7 +221,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(12)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,2))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,2)))),
       set([
         (Move(Color.White, 11, 1), Move(Color.White, 12, 2)),
         (Move(Color.White, 11, 2), Move(Color.White, 13, 1)),
@@ -234,7 +237,7 @@ class TestBoardMoves(unittest.TestCase):
     )
 
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,2))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,2)))),
       set([
         (Move(Color.White, 11, 2), Move(Color.White, 13, 1)),
       ])
@@ -248,7 +251,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(12, Color.Black, 2)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,3))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,3)))),
       set([
         (Move(Color.White, 11, 1),),
       ])
@@ -264,7 +267,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(4)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(5,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(5,6)))),
       set([
         # These  movesets are identical to each other because they both bear
         # off and could be deduped, but don't seem harmful, so leaving for now
@@ -284,7 +287,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(18)
     )
     self.assertEqual(
-      board.possible_moves(Color.Black, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.Black, Dice(roll=(1,6)))),
       set([
         (Move(Color.Black, 6, 1), Move(Color.Black, 5, 6),),
         # Practically, this move is idenical since the above two
@@ -303,7 +306,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(18)
     )
     self.assertEqual(
-      board.possible_moves(Color.Black, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.Black, Dice(roll=(1,6)))),
       set([
         (Move(Color.Black, 6, 1), Move(Color.Black, 5, 6),),
       ])
@@ -318,7 +321,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(18)
     )
     self.assertEqual(
-      board.possible_moves(Color.Black, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.Black, Dice(roll=(1,6)))),
       set([
         (Move(Color.Black, 6, 6),),
       ])
@@ -331,7 +334,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(17)
     )
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(6,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(6,6)))),
       set()
     )
 
@@ -341,7 +344,7 @@ class TestBoardMoves(unittest.TestCase):
     )
     board.add_bar(Color.White)
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,6)))),
       set([
         (Move(Color.White, Move.Bar, 1), Move(Color.White, 1, 6),),
         (Move(Color.White, Move.Bar, 6), Move(Color.White, 6, 1),),
@@ -355,7 +358,7 @@ class TestBoardMoves(unittest.TestCase):
     )
     board.add_bar(Color.White)
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,6)))),
       set([
         (Move(Color.White, Move.Bar, 6), Move(Color.White, 6, 1),),
       ])
@@ -368,7 +371,7 @@ class TestBoardMoves(unittest.TestCase):
     )
     board.add_bar(Color.White)
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,6)))),
       set()
     )
 
@@ -379,7 +382,7 @@ class TestBoardMoves(unittest.TestCase):
     )
 
     self.assertEqual(
-      board.possible_moves(Color.White, Dice(roll=(1,6))),
+      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,6)))),
       set([
         (Move(Color.White, 24, 1),),
         (Move(Color.White, 24, 6),),

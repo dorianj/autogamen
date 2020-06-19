@@ -47,7 +47,7 @@ class _Point:
     return (not self.is_empty()) and (self.color != color) and (self.count == 1)
 
   def can_land(self, color):
-    """Returns whether it's allowed to add here or hit here."""
+    """Is :color: is allowed to add here or hit here?"""
     return self.is_empty() or self.can_hit(color) or (self.color == color)
 
 

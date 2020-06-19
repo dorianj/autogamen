@@ -119,22 +119,22 @@ class MLPPlayer(Player):
     if self.learning:
       p = self.p(self.game.board)
 
-    # Dedupe moves into materialized boards
-    possible_boards = set(
-      (self.game.board.clone_apply_moves(moves).frozen_copy(), moves)
-      for moves in possible_moves
-    )
+    # Dedupe moves into materialized boards: if multiple moves result in the same
+    # board, we needn't score the boards multiple times
+    moves_by_board = defaultdict(list)
+    for move, board in possible_moves:
+      moves_by_board[board].append(move)
 
     # Score the boards by the neural net
     scored_boards = [
-      (self.p(board), board, move)
-      for board, move in possible_boards
+      (self.p(board), board, moves[0])
+      for board, moves in moves_by_board.items()
     ]
 
-    # argmax according to color
+    # argmax according to score
     sorted_boards = sorted(
       scored_boards,
-      key=lambda i: i[0],
+      key=lambda i: self.score(i[0]),
       reverse=self.color == Color.Black
     )
 

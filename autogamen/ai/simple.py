@@ -12,7 +12,7 @@ class BozoPlayer(Player):
     if not len(possible_moves):
       return [TurnAction.Pass]
 
-    return [TurnAction.Move, random.choice(sorted(possible_moves))]
+    return [TurnAction.Move, random.choice(sorted(possible_moves))[0]]
 
   def accept_doubling_cube(self):
     return False
@@ -27,8 +27,7 @@ class RunningPlayer(Player):
       return [TurnAction.Pass]
 
     boards_by_pip_count = defaultdict(set)
-    for moves in possible_moves:
-      board = self.game.board.clone_apply_moves(moves)
+    for moves, board in possible_moves:
       boards_by_pip_count[board.pip_count()[self.color]].add(moves)
 
     possible_moves = boards_by_pip_count[min(boards_by_pip_count.keys())]
@@ -46,8 +45,7 @@ class DeltaPlayer(Player):
       return [TurnAction.Pass]
 
     boards_by_pip_delta = defaultdict(set)
-    for moves in possible_moves:
-      board = self.game.board.clone_apply_moves(moves)
+    for moves, board in possible_moves:
       pip_delta = board.pip_count()[self.color.opponent()] - board.pip_count()[self.color]
       boards_by_pip_delta[pip_delta].add(moves)
 

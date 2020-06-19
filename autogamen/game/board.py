@@ -148,10 +148,7 @@ class _Board:
     """Returns the list of possible moves. Each item is a Set of Moves
     """
     def _worker(board, remaining_dice):
-      if not len(remaining_dice):
-        return []
-
-      moves = []
+      moves = set()
       for d, die in enumerate(set(remaining_dice)):
         # Attempt to find moves on the board or bar. We're gonna do a little
         # sneaky thing and start at 0, which is Move.Bar, which will ensure that
@@ -161,27 +158,26 @@ class _Board:
         for point_number in range(0, 25):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
-            moves.append((move,))
-            new_board = board.clone_apply_moves([move])
-            for submoves in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
-              moves.append((move,) + submoves)
+            moves.add(((move,), board))
+            new_board = board.clone_apply_moves([move]).frozen_copy()
+            for submoves, subboard in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
+              moves.add(((move,) + submoves, subboard))
 
-      return tuple(moves)
-
+      return moves
 
     effective_roll = dice.effective_roll()
-    all_movesets = _worker(self, effective_roll)
+    all_moves = _worker(self.frozen_copy(), effective_roll)
 
-    if len(all_movesets) == 0:
+    if len(all_moves) == 0:
       return set()
 
     # Prune incomplete moves. Basically, if there exists movesets that use all
     # of the dice, then the ones that only use some of the dice are invalid.
-    longest_moveset = max(map(len, all_movesets))
-    if longest_moveset > len(effective_roll):
-      raise Exception("Logic error: shouldn't have movesets with more moves than dice")
+    longest_move = max(map(lambda m: len(m[0]), all_moves))
+    if longest_move > len(effective_roll):
+      raise Exception(f"Logic error: shouldn't have movesets with more moves than dice ({longest_move} > {len(effective_roll)})")
 
-    return set(moveset for moveset in all_movesets if len(moveset) == longest_moveset)
+    return set(m for m in all_moves if len(m[0]) == longest_move)
 
 
 class FrozenBoard(_Board):

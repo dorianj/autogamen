@@ -94,17 +94,17 @@ class Game:
     logging.debug(f"Turn {self.turn_number}: {self.active_color} has roll {self.active_dice.roll}:")
 
     possible_moves = self.board.possible_moves(self.active_color, self.active_dice)
-    turn_result = self.active_player().action(set(possible_moves))
+    turn_result = self.active_player().action(possible_moves)
     turn_action = turn_result[0]
 
     if turn_action is TurnAction.Move:
-      moves = turn_result[1]
-      logging.debug(f"\tMoves: {moves}")
+      move = turn_result[1]
+      logging.debug(f"\tMoved: {move}")
 
-      if moves not in possible_moves:
+      if not any(move == m[0] for m in possible_moves):
         raise Exception("Illegal move attempted!")
 
-      [self.board.apply_move(move) for move in moves]
+      [self.board.apply_move(move) for move in move]
     elif turn_action is TurnAction.DoublingCube:
       logging.debug(f"\tOffers the doubling cube")
       raise Exception("Doubling cube is unimplemented")

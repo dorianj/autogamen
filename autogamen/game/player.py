@@ -19,9 +19,4 @@ class Player:
     raise Exception("doubling_cube not implemented")
 
   def end_game(self, game):
-    pass
     self.game = None
-
-
-  def possible_moves(self, game):
-    pass
