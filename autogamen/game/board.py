@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 import itertools
 
-from .types import Color, Move
+from .types import Color, FrozenPoint, Move
 
 class _Board:
   def __init__(self, points, bar=None, off=None):
@@ -136,14 +136,41 @@ class _Board:
 
     return self.points[point_number - 1]
 
-  def clone_apply_moves(self, moves):
-    """Returns a deep copy of self with :moves: applied.
+  def copy_apply_moves(self, moves):
+    """Returns a frozen copy of self with :moves: applied. Less readable than
+       Board.apply_move, but more performant. Note that all moves must have the
+       same color, if that invariant isn't held behavior is undefined.
     """
-    new_board = self.mutable_copy()
-    for move in moves:
-      new_board.apply_move(move)
+    new_bar = list(self.bar)
+    new_off = list(self.off)
+    new_points = list(self.points)
 
-    return new_board
+    for move in moves:
+      # Subtract the source pip, wherever it may be
+      if move.point_number == Move.Bar:
+        new_bar[move.color.value] -= 1
+      else:
+        source_point = new_points[move.point_number - 1]
+        if isinstance(source_point, FrozenPoint):
+          new_points[move.point_number - 1] = source_point = source_point.mutable_copy()
+
+        source_point.subtract(move.color)
+
+      # Move this pip, either off or on the board
+      if move.destination_is_off:
+        new_off[move.color.value] += 1
+      else:
+        dest_point = new_points[move.destination_point_number - 1]
+        if isinstance(dest_point, FrozenPoint):
+          new_points[move.destination_point_number - 1] = dest_point = dest_point.mutable_copy()
+
+        if dest_point.can_hit(move.color):
+          new_bar[move.color.opponent().value] += 1
+          dest_point.hit(move.color)
+        else:
+          dest_point.add(move.color)
+
+    return FrozenBoard(new_points, new_bar, new_off)
 
   def move_is_valid(self, move):
     """Returns whether a single move is allowed, i.e. that if it would bear off,
@@ -184,7 +211,7 @@ class _Board:
         for point_number in range(0, 25):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
-            new_board = board.clone_apply_moves([move]).frozen_copy()
+            new_board = board.copy_apply_moves([move]).frozen_copy()
             moves.add(((move,), new_board))
             for submoves, subboard in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
               moves.add(((move,) + submoves, subboard))
