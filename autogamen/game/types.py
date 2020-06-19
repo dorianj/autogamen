@@ -62,7 +62,10 @@ class _Point:
 
 class FrozenPoint(_Point):
   def __hash__(self):
-    return ((1 if self.color == Color.Black else 2) << 3) + self.count
+    if self.count == 0:
+      return 0
+    else:
+      return self.color.value << 10 | self.count
 
 
 class Point(_Point):
