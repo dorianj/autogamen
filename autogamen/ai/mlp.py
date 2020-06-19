@@ -73,7 +73,6 @@ class Net(nn.Module):
     return self.layers(x)
 
   def update_weights(self, p, p_next):
-    print(p, p_next)
     self.zero_grad()
 
     p.backward()
