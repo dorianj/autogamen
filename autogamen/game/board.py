@@ -173,8 +173,8 @@ class _Board:
         for point_number in range(0, 25):
           move = Move(color, point_number, die)
           if board.move_is_valid(move):
-            moves.add(((move,), board))
             new_board = board.clone_apply_moves([move]).frozen_copy()
+            moves.add(((move,), new_board))
             for submoves, subboard in _worker(new_board, remaining_dice[0:d] + remaining_dice[d + 1:]):
               moves.add(((move,) + submoves, subboard))
 
