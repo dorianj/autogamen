@@ -8,6 +8,8 @@ from autogamen.ui.match_view import display_board
 from .performance import assertRuntime
 
 def repeat_point(repeat_count, pips=0, color=None):
+  if type(pips) is not int or (color is not None and type(color) is not Color):
+    raise Exception("Invalid args into repeat_point")
   return [Point(pips, color) for i in range(repeat_count)]
 
 default_starting_points = [
@@ -248,7 +250,7 @@ class TestBoardMoves(unittest.TestCase):
       repeat_point(10) +
       [Point(1, Color.White)] +
       [Point(2, Color.White)] +
-      repeat_point(12, Color.Black, 2)
+      repeat_point(12, 2, Color.Black)
     )
     self.assertEqual(
       extract_moves(board.possible_moves(Color.White, Dice(roll=(1,3)))),
