@@ -41,14 +41,13 @@ class MatchView:
 
 
   def run(self):
-    self.match.start()
-    while True:
+    self.match.start_game()
+    while self.match.winner is None:
       self.draw_chrome()
       self.draw_board()
       self.tk.update_idletasks()
       self.tk.update()
       self.match.tick()
-
 
 
 def display_board(board):

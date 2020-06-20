@@ -260,7 +260,7 @@ class BoardView:
     for color in Color:
       direction = self._color_direction(color) * -1
       self.draw_pip_stack(
-        self.game.board.off[color],
+        self.game.board.off[color.value],
         color,
         direction,
         Area(
