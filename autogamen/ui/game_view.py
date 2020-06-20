@@ -8,7 +8,7 @@ def choose_color(white, white_color="#ffffff", black_color="#000000"):
   """Ternary statement with defaults."""
   return white_color if white else black_color
 
-class BoardView:
+class GameView:
   def __init__(self, canvas, area, game):
     self.canvas = canvas
     self.area = area
@@ -88,17 +88,19 @@ class BoardView:
       self.offset(coord.x, coord.y),
       self.offset(coord.x + self.point_width, coord.y),
       self.offset(coord.x + self.point_width / 2, coord.y + self.point_height * top_sign),
-      fill=choose_color(point_number % 2, "#990000", "#A5A5A5")
+      fill=choose_color(point_number % 2, "#990000", "#A5A5A5"),
+      tags=[f"point:{point_number}"]
     )
 
     # Draw the point number indicator
     self.canvas.create_text(
       self.area.offset.x + coord.x + self.point_width / 2,
       self.area.offset.y + coord.y + 10 * top_sign,
-      text=point_number
+      text=point_number,
+      tags=[f"point:{point_number}"]
     )
 
-  def draw_pip_stack(self, count, color, direction, area):
+  def draw_pip_stack(self, count, color, direction, area, tags=()):
     """Draw a stack of pips
       :count: int, number of pips to draw
       :color: Color
@@ -121,7 +123,8 @@ class BoardView:
         self.offset(offset_x, area.offset.y + offset_y * direction),
         self.offset(offset_x + self.pip_size, area.offset.y + (offset_y + self.pip_size) * direction),
         fill=choose_color(color == Color.White, "#ffffff", "#222222"),
-        outline="#707070"
+        outline="#707070",
+        tags=tags
       )
 
     # When overflow occurs, label the total pip count.
@@ -132,7 +135,8 @@ class BoardView:
           area.offset.y + (offset_y + self.pip_size / 2) * direction
         ),
         text=count,
-        fill=choose_color(color != Color.White, "#ffffff", "#222222")
+        fill=choose_color(color != Color.White, "#ffffff", "#222222"),
+        tags=tags,
       )
 
   def draw_point_pips(self, point_number, point):
@@ -140,16 +144,16 @@ class BoardView:
     """
     coord = self._point_coord(point_number)
     direction = self._point_direction(point_number)
-    start_x = coord.x + self.point_width / 2 - self.pip_size / 2
 
     self.draw_pip_stack(
       point.count,
       point.color,
       direction,
       Area(
-        Coord(start_x, coord.y),
+        Coord(coord.x, coord.y),
         Rect(self.point_width, self.point_height)
-      )
+      ),
+      [f"point:{point_number}"]
     )
 
   def draw_points(self):
@@ -169,6 +173,7 @@ class BoardView:
       self.offset(center_x + self.bar_width / 2, self.area.rect.height),
       fill="#656565",
       outline="",
+      tags=["bar"],
     )
 
     # Draw the dice on the player's side
@@ -212,7 +217,8 @@ class BoardView:
         Area(
           Coord(bar_start_x, self._y_reflected(bar_pips_offset, direction)),
           Rect(self.bar_width, bar_pips_height)
-        )
+        ),
+        tags=["bar"]
       )
 
     # Draw the doubling cube in the center
@@ -226,7 +232,8 @@ class BoardView:
         center_x + self.doubling_cube_size / 2,
         self.area.rect.height / 2 + self.doubling_cube_size / 2
       ),
-      fill="#ffffff"
+      fill="#ffffff",
+      tags=["doubling_cube"],
     )
     self.canvas.create_text(
       self.offset(
@@ -244,6 +251,7 @@ class BoardView:
       self.offset(off_start_x + self.off_width, self.area.rect.height),
       fill="#EAEAEA",
       outline="",
+      tags=["off"],
     )
 
     separator_width = 3
@@ -266,7 +274,8 @@ class BoardView:
         Area(
           Coord(off_pips_x, self._y_reflected(off_pips_y, direction)),
           Rect(self.off_width - separator_width, off_pips_height)
-        )
+        ),
+        ["off"],
       )
 
   def draw(self):

@@ -3,6 +3,7 @@ import logging
 
 from autogamen.ai.mlp import MLPPlayer
 from autogamen.ai.simple import BozoPlayer, DeltaPlayer
+from autogamen.ui.ui_player import HumanPlayer
 from autogamen.game.match import Match
 from autogamen.game.types import Color
 from autogamen.ui.match_view import MatchView
@@ -20,7 +21,9 @@ if __name__ == "__main__":
     raise ValueError('Invalid log level: %s' % loglevel)
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
-match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)], 3)
+human_player = HumanPlayer(Color.White)
+match = Match([human_player, DeltaPlayer(Color.Black)], 50)
 match_view = MatchView(match)
 match_view.create_window()
+human_player.attach(match_view)
 match_view.run()
