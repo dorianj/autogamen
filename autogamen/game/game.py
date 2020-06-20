@@ -85,14 +85,17 @@ class Game:
     else:
       return False
 
-  def run_turn(self):
-    """Runs a single turn.
+  def pre_turn(self):
+    """Set up the board for the upcoming turn without blocking
     """
     self.active_color = self.active_color.opponent()
     self.active_dice = Dice()
     self.turn_number += 1
     logging.debug(f"Turn {self.turn_number}: {self.active_color} has roll {self.active_dice.roll}:")
 
+  def turn_blocking(self):
+    """Run the turn, blocking until player chooses an action
+    """
     possible_moves = self.board.possible_moves(self.active_color, self.active_dice)
     turn_result = self.active_player().action(possible_moves)
     turn_action = turn_result[0]
@@ -117,6 +120,11 @@ class Game:
 
     self.check_winning_condition()
 
+  def run_turn(self):
+    """Runs a single turn, blocks
+    """
+    self.pre_turn()
+    self.turn_blocking()
 
   def active_player(self):
     return self.players[self.active_color]

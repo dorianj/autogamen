@@ -42,9 +42,9 @@ class HumanPlayer(Player):
   def target_for_tags(self, tags):
     for tag in tags:
       if tag == "bar":
-        return "off"
-      elif tag == "off":
         return "bar"
+      elif tag == "off":
+        return "off"
       else:
         point_number = self.extract_point(tag)
         if point_number:
@@ -86,19 +86,21 @@ class HumanPlayer(Player):
       else:
         point_coord = gv._point_coord(allowed_move.destination_point_number)
         direction = gv._point_direction(allowed_move.destination_point_number)
+        indicator_height = gv.point_height / 4
 
-        # Draw the triangle
-        self.match_view.canvas.create_polygon(
-          gv.offset(point_coord.x, point_coord.y),
-          gv.offset(point_coord.x + gv.point_width, point_coord.y),
-          gv.offset(point_coord.x + gv.point_width / 2, point_coord.y + gv.point_height * direction),
+        self.match_view.canvas.create_rectangle(
+          gv.offset(point_coord.x, point_coord.y + indicator_height * direction),
+          gv.offset(point_coord.x + gv.point_width, point_coord.y + (indicator_height*2) * direction),
           fill=dest_color,
           tags=tags + [f"point:{allowed_move.destination_point_number}"],
         )
 
-  def clear_turn_selector(self):
-    for item in self.match_view.canvas.find_withtag("turn_selector"):
+  def remove_from_canvas_by_tag(self, tag):
+    for item in self.match_view.canvas.find_withtag(tag):
       self.match_view.canvas.delete(item)
+
+  def clear_half_turn_selector(self):
+    self.remove_from_canvas_by_tag("turn_selector")
 
   def allowed_moves_from_target(self, target):
     # Find moves with this point as a starting point
@@ -113,7 +115,7 @@ class HumanPlayer(Player):
   def complete_half_move(self, move):
     self.half_selected_point = None
     self.selected_moves += (move,)
-    self.clear_turn_selector()
+    self.clear_half_turn_selector()
     self.match_view.match.current_game.board = self.board_before_turn.copy_apply_moves(self.selected_moves)
     self.match_view.draw()
 
@@ -122,7 +124,7 @@ class HumanPlayer(Player):
         10, 5,
         50, 25,
         fill="green",
-        tags=["turn_selector", "finish"],
+        tags=["turn_completer", "finish"],
       )
 
     if not self.match_view.canvas.find_withtag("undo"):
@@ -130,11 +132,12 @@ class HumanPlayer(Player):
         60, 5,
         90, 25,
         fill="red",
-        tags=["turn_selector", "undo"],
+        tags=["turn_completer", "undo"],
       )
 
   def complete_turn(self):
-    pass
+    self.turn_finished = True
+    self.remove_from_canvas_by_tag("turn_completer")
 
   def mouse_click(self, click):
     click_coord = Coord(click.x, click.y)
@@ -145,17 +148,19 @@ class HumanPlayer(Player):
     target_is_point = type(click_target) == int
     target_is_bar = click_target == "bar"
 
+    print(f"target_tags: {target_tags}; click_target: {click_target}")
+
     if "undo" in target_tags:
       self.selected_moves = tuple()
       self.match_view.match.current_game.board = self.board_before_turn.mutable_copy()
       self.match_view.draw()
     elif self.have_complete_turn_selected():
       if "finish" in target_tags:
-        self.turn_finished = True
+        self.complete_turn()
     elif self.half_selected_point:
       if "source" in target_tags:
         self.half_selected_point = None
-        self.clear_turn_selector()
+        self.clear_half_turn_selector()
       elif target_is_off or target_is_point:
         # Possibly valid move
         for move in self.allowed_moves_from_target(self.half_selected_point):
@@ -175,10 +180,6 @@ class HumanPlayer(Player):
   def attach(self, match_view):
     self.match_view = match_view
     self.match_view.canvas.bind('<Button>', self.mouse_click)
-    self.match_view.add_draw_hook(self.draw_hook)
-
-  def draw_hook(self):
-    pass
 
   def action(self, possible_moves):
     if not len(possible_moves):

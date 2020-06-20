@@ -10,10 +10,6 @@ class MatchView:
 
   def __init__(self, match):
     self.match = match
-    self.hooks = []
-
-  def add_draw_hook(self, hook):
-    self.hooks.append(hook)
 
   def create_window(self):
     self.tk = Tk()
@@ -52,9 +48,6 @@ class MatchView:
       text=text
     )
 
-    for hook in self.hooks:
-      hook()
-
   def draw_game(self):
     padding = Coord(10, 30)
     self.game_view = GameView(
@@ -79,8 +72,8 @@ class MatchView:
     self.draw_game()
 
   def run(self):
-    self.match.start_game()
     while self.match.winner is None:
+      self.match.pre_tick()
       self.draw()
       self.run_tk_mainloop_once()
       if self.match.tick():

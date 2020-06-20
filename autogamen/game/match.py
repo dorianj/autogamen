@@ -17,15 +17,29 @@ class Match:
     # Set after a winner is decided
     self.winner = None
 
-  def start_game(self):
-    self.current_game = Game(self.players)
-    self.games.append(self.current_game)
-    self.current_game.start()
+    self.tick_prepared = False
+
+  def pre_tick(self):
+    if not self.winner:
+      if not self.current_game:
+        self.current_game = Game(self.players)
+        self.games.append(self.current_game)
+        self.current_game.start()
+      else:
+        self.current_game.pre_turn()
+      self.tick_prepared = True
 
   def tick(self):
     """Returns boolean whether the current game is over.
     """
-    self.current_game.run_turn()
+    if self.winner:
+      return True
+
+    if not self.tick_prepared:
+      self.pre_tick()
+      self.tick_prepared = False
+
+    self.current_game.turn_blocking()
 
     if self.current_game.winner:
       self.points[self.current_game.winner.color] += self.current_game.points
