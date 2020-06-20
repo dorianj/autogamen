@@ -19,7 +19,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--games", help="Number of games to play", default=10, type=int)
 parser.add_argument("--checkpoint", help="Save model after this many training games", default=1000, type=int)
 parser.add_argument("--alpha", help="Learning rate", default=0.1, type=float)
-parser.add_argument("--profile", help="Run Python profiler", default=False, type=bool)
+parser.add_argument("--profile", help="Run Python profiler", action='store_true')
+parser.add_argument("--exhibition", help="Run exhibition matches during checkpoints", action='store_true')
 parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)", default="info")
 args = parser.parse_args()
 
@@ -115,8 +116,9 @@ if __name__ == "__main__":
       checkpoint_path = os.path.join(net_directory(), f"net-{run_timestamp}-{i+gen:07d}.torch")
       write_checkpoint(checkpoint_path, net, i)
 
-      run_exhib_match(net, BozoPlayer)
-      run_exhib_match(net, DeltaPlayer)
+      if args.exhibition:
+        run_exhib_match(net, BozoPlayer)
+        run_exhib_match(net, DeltaPlayer)
 
     run_game(white, black, net)
 
