@@ -1,0 +1,37 @@
+[project]
+name = "autogamen"
+version = "0.1.0"
+description = "Auto game playing with AI"
+requires-python = ">=3.13"
+dependencies = [
+    "future>=0.18.2",
+    "numpy>=1.18.5",
+    "Pillow>=8.1.1",
+    "torch>=1.5.0",
+    "torchvision>=0.6.0",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "C90", "UP", "W291", "PLC0415"]
+ignore = ["E501", "C901"]  # line too long, function complexity
+extend-safe-fixes = ["W291", "W293"]  # Treat trailing whitespace removal as safe
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+allow_redefinition = false
+check_untyped_defs = true
+no_implicit_reexport = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "ruff>=0.14.1",
+]
