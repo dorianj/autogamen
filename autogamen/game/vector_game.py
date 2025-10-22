@@ -150,9 +150,18 @@ def apply_move(vec: npt.NDArray[np.float32], move: Move) -> npt.NDArray[np.float
         bar_idx = BAR_WHITE_IDX if move.color == Color.White else BAR_BLACK_IDX
         result[bar_idx] -= 1
     else:
-        source_color, source_count = _get_point_color_count(result, move.point_number)
-        if source_color != move.color or source_count == 0:
-            raise ValueError(f"invalid move: no {move.color} checker at point {move.point_number}")
+        # inline _get_point_color_count for source point
+        src_base = (move.point_number - 1) * 8
+        src_offset = 0 if move.color == Color.White else 4
+
+        # decode count inline
+        if result[src_base + src_offset + 2] > 0.5:  # ≥3
+            source_count = 3 + int(result[src_base + src_offset + 3] * 2)
+        elif result[src_base + src_offset + 1] > 0.5:  # ≥2
+            source_count = 2
+        else:
+            source_count = 1
+
         _set_point(result, move.point_number, move.color if source_count > 1 else None, source_count - 1)
 
     # handle destination: off or point
@@ -161,7 +170,29 @@ def apply_move(vec: npt.NDArray[np.float32], move: Move) -> npt.NDArray[np.float
         result[off_idx] += 1
     else:
         assert move.destination_point_number is not None
-        dest_color, dest_count = _get_point_color_count(result, move.destination_point_number)
+        # inline _get_point_color_count for destination point
+        dst_base = (move.destination_point_number - 1) * 8
+
+        # check both colors
+        if result[dst_base + 0] > 0.5:  # white checkers
+            if result[dst_base + 2] > 0.5:
+                dest_count = 3 + int(result[dst_base + 3] * 2)
+            elif result[dst_base + 1] > 0.5:
+                dest_count = 2
+            else:
+                dest_count = 1
+            dest_color = Color.White
+        elif result[dst_base + 4] > 0.5:  # black checkers
+            if result[dst_base + 6] > 0.5:
+                dest_count = 3 + int(result[dst_base + 7] * 2)
+            elif result[dst_base + 5] > 0.5:
+                dest_count = 2
+            else:
+                dest_count = 1
+            dest_color = Color.Black
+        else:
+            dest_count = 0
+            dest_color = None
 
         # check for hit
         if dest_color is not None and dest_color != move.color and dest_count == 1:
