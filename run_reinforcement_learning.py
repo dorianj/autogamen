@@ -56,7 +56,7 @@ def run_game(white, black, net):
   game = Game([white, black])
   game.start()
 
-  for turn_number in itertools.count():
+  for _turn_number in itertools.count():
     game.run_turn()
     if game.winner is not None:
       return
@@ -68,7 +68,6 @@ def run_exhib_match(net, cls):
   while True:
     if match.tick():
       if match.winner is not None:
-        game_count = len(match.games)
         print("{} exhibition vs {}, {} to {} in {} turns".format(
           "WON" if match.winner.color == Color.White else "Lost",
           cls.__name__,
@@ -96,7 +95,7 @@ if __name__ == "__main__":
   # Housekeeping: log levels
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError(f'Invalid log level: {args.verbosity}')
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
   # Try to find a checkpoint file to load

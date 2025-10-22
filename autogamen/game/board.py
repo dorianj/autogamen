@@ -47,8 +47,6 @@ class _Board:
 
   def visual_str_repr(self):
     rows = ["", "", ""]
-    height = 5
-    columns = []
     for point_number in range(1, 25):
       point = self.point_at_number(point_number)
       rows[0] += (f"{point.count:>2} ")
@@ -179,7 +177,8 @@ class _Board:
     """
 
     # This may be incalcuable, so lazily compute it
-    destination_point = lambda: self.point_at_number(move.destination_point_number)
+    def destination_point():
+      return self.point_at_number(move.destination_point_number)
 
     # This is coming off of the bar.
     if move.point_number == Move.Bar:

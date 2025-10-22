@@ -24,7 +24,7 @@ def _fmt_percent(p):
 def run_match_args(a):
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError(f'Invalid log level: {args.verbosity}')
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
   return run_match(*a)
@@ -49,7 +49,7 @@ if __name__ == "__main__":
   # Housekeeping: log levels
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError(f'Invalid log level: {args.verbosity}')
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
   # Random seed

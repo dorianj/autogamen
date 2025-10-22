@@ -58,7 +58,7 @@ def run_generation(generation, nets):
   # To fill the remaining slots, breed players from the top half
   eligible_parents = [match.winner.net for match in matches_by_fitness[0:len(matches_by_fitness) // 2]]
   offspring_nets = []
-  for i in range(0, math.ceil(player_count * args.crossover)):
+  for _i in range(0, math.ceil(player_count * args.crossover)):
     [p1, p2] = random.choices(eligible_parents, k=2)
     offspring_nets.append(p1.breed(p2))
 
@@ -71,7 +71,7 @@ def run_generation(generation, nets):
 def run_match_args(a):
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError(f'Invalid log level: {args.verbosity}')
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
   return run_match(*a)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
   # Housekeeping: log levels
   numeric_level = getattr(logging, args.verbosity.upper(), None)
   if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError(f'Invalid log level: {args.verbosity}')
   logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
   if args.population % 2 == 1:

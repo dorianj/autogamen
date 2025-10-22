@@ -15,7 +15,6 @@ class HumanPlayer(Player):
 
   # Moves that have been selected
   selected_moves = tuple()
-  have_complete_turn_selected = False
 
   # Board as it was before this turn started
   board_before_turn = None
@@ -144,7 +143,7 @@ class HumanPlayer(Player):
 
     click_target = self.target_for_tags(target_tags)
     target_is_off = click_target == "off"
-    target_is_point = type(click_target) == int
+    target_is_point = isinstance(click_target, int)
     target_is_bar = click_target == "bar"
 
     print(f"target_tags: {target_tags}; click_target: {click_target}")

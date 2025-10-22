@@ -126,17 +126,16 @@ def extract_moves(moves_and_boards):
 
 class TestBoardValidation(unittest.TestCase):
   def test_constructor_invalid_inputs(self):
-    with self.assertRaises(Exception, msg="Raises for empty board"):
+    with self.assertRaises(Exception, msg="Raises for empty board"):  # noqa: B017
       Board([])
 
-    with self.assertRaises(Exception, msg="Raises for too-large board"):
+    with self.assertRaises(Exception, msg="Raises for too-large board"):  # noqa: B017
       Board(default_starting_points + [Point(2, Color.Black)])
 
 
 class TestFrozenBoard(unittest.TestCase):
   def test_board_equality(self):
     b1 = Board(list(default_starting_points))
-    b2 = FrozenBoard(list(default_starting_points))
     self.assertEqual(b1, b1)
 
   def test_frozen_board_hashable(self):
