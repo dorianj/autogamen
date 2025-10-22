@@ -18,4 +18,29 @@ typecheck:
 	@echo "→ running mypy type check"
 	@uv run mypy --explicit-package-bases autogamen/
 
-.PHONY: test lint lint-fix typecheck
+# gnubg build targets
+vendor/gnubg/configure: vendor/gnubg/autogen.sh vendor/gnubg/configure.ac
+	@echo "→ running autogen.sh to generate configure script"
+	cd vendor/gnubg && ./autogen.sh
+
+vendor/gnubg/Makefile: vendor/gnubg/configure
+	@echo "→ configuring gnubg (no gtk, no python, cli only)"
+	cd vendor/gnubg && ./configure --without-gtk --without-python --disable-nls
+
+vendor/gnubg/gnubg: vendor/gnubg/Makefile
+	@echo "→ building gnubg"
+	$(MAKE) -C vendor/gnubg
+
+gnubg: vendor/gnubg/gnubg
+	@echo "✔ gnubg built successfully at vendor/gnubg/gnubg"
+
+gnubg-clean:
+	@echo "→ cleaning gnubg build artifacts"
+	@if [ -f vendor/gnubg/Makefile ]; then $(MAKE) -C vendor/gnubg clean; fi
+
+gnubg-distclean:
+	@echo "→ removing gnubg build configuration"
+	@if [ -f vendor/gnubg/Makefile ]; then $(MAKE) -C vendor/gnubg distclean; fi
+	@rm -f vendor/gnubg/configure vendor/gnubg/config.h.in
+
+.PHONY: test lint lint-fix typecheck gnubg gnubg-clean gnubg-distclean

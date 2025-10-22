@@ -116,6 +116,7 @@ def battle(
     import random
     from collections import Counter
     from multiprocessing import Pool
+
     from autogamen.game.game_types import Color
     from autogamen.game.match import Match
 
@@ -216,6 +217,7 @@ def headless(
     import random
     from collections import Counter
     from multiprocessing import Pool
+
     from autogamen.game.game_types import Color
     from autogamen.game.match import Match
 

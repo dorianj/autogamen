@@ -16,6 +16,9 @@ dependencies = [
 [project.scripts]
 autogamen = "autogamen.cli:cli"
 
+[tool.ruff]
+exclude = ["vendor/"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "C90", "UP", "W291", "PLC0415"]
 ignore = ["E501", "C901"]  # line too long, function complexity
