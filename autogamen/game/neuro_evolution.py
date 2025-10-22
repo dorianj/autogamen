@@ -9,6 +9,7 @@ import sys
 from collections import Counter
 from datetime import datetime
 from multiprocessing import Pool
+from typing import Any
 
 from autogamen.ai.mlp import MLPPlayer, Net
 from autogamen.game.game_types import Color
@@ -21,11 +22,12 @@ def _fmt_percent(p: float) -> str:
 
 def fitness_for_match(match: "Match") -> float:
     """Calculate fitness score for a match"""
+    assert match.winner is not None
     points = match.points[match.winner.color]
     return points - min(0.5, match.turn_count / 200)
 
 
-def run_match_args(args: tuple) -> "Match":
+def run_match_args(args: tuple[Any, ...]) -> "Match":
     """Wrapper to configure logging in subprocess"""
     verbosity, white_player, black_player = args
     numeric_level = getattr(logging, verbosity.upper(), None)
@@ -38,19 +40,15 @@ def run_match_args(args: tuple) -> "Match":
 def run_match(white_player: "MLPPlayer", black_player: "MLPPlayer") -> "Match":
     """Run a single match to completion"""
     match = Match([white_player, black_player], 1)
-    match.start_game()
     while True:
         if match.tick():
-            if match.winner is not None:
-                game_count = len(match.games)
-                logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
-                for color, wins in Counter(game.winner.color for game in match.games).items():
-                    logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
-                return match
-            else:
-                game = match.current_game
-                logging.info(f"Game ended: {game.winner.color} won with {game.points} points after {game.turn_number} turns.")
-                match.start_game()
+            assert match.winner is not None
+            game_count = len(match.games)
+            logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
+            winners = [g.winner for g in match.games if g.winner]
+            for color, wins in Counter(w.color for w in winners).items():  # type: ignore[attr-defined]
+                logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
+            return match
 
 
 def run_generation(generation: int, nets: list["Net"], parallelism: int, mutation: float, crossover: float, population: int) -> list["Net"]:
@@ -76,13 +74,14 @@ def run_generation(generation: int, nets: list["Net"], parallelism: int, mutatio
 
     # Elite players are passed as-is
     elite_matches = matches_by_fitness[0:math.ceil(player_count * (1 - crossover / 2))]
-    elite_nets = (match.winner.net for match in elite_matches)
+    elite_nets_list = [match.winner.net for match in elite_matches if match.winner]
+    elite_nets = (net for net in elite_nets_list)
 
     # Elite players are also included as mutated
-    elite_mutated_nets = (net.mutate(mutation) for net in elite_nets)
+    elite_mutated_nets = (net.mutate(mutation) for net in elite_nets_list)
 
     # To fill the remaining slots, breed players from the top half
-    eligible_parents = [match.winner.net for match in matches_by_fitness[0:len(matches_by_fitness) // 2]]
+    eligible_parents = [match.winner.net for match in matches_by_fitness[0:len(matches_by_fitness) // 2] if match.winner]
     offspring_nets = []
     for _i in range(0, math.ceil(player_count * crossover)):
         [p1, p2] = random.choices(eligible_parents, k=2)
@@ -127,7 +126,7 @@ def run_neuro_evolution(
     os.makedirs(net_dir, exist_ok=True)
 
     # Run the generations
-    nets = [Net.random_net() for _ in range(0, population)]
+    nets = [Net() for _ in range(0, population)]
     for gen in range(0, generations):
         nets = run_generation(gen, nets, parallelism, mutation, crossover, population)
         write_net_to_file(nets, os.path.join(net_dir, f"net-{run_timestamp}-{gen}.pickle"))

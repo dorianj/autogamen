@@ -80,15 +80,16 @@ def run_game(white: "MLPPlayer", black: "MLPPlayer", net: "Net") -> GameMetrics:
 
     net.update_weights = wrapped_update  # type: ignore[method-assign]
 
-    for turn_number in itertools.count():
+    turn_number = 0
+    while True:
         game.run_turn()
-        metrics.turn_count = turn_number + 1
+        turn_number += 1
+        metrics.turn_count = turn_number
         if game.winner is not None:
-            break
+            break  # type: ignore[unreachable]
 
     # Restore original method
-    net.update_weights = original_update  # type: ignore[method-assign]
-
+    net.update_weights = original_update  # type: ignore[unreachable]
     return metrics
 
 

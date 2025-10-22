@@ -1,4 +1,5 @@
 from tkinter import Canvas, Tk, mainloop
+from typing import Any
 
 from autogamen.game.game_types import Color
 
@@ -9,10 +10,10 @@ class MatchView:
   WINDOW_WIDTH = 600
   WINDOW_HEIGHT = 400
 
-  def __init__(self, match):
+  def __init__(self, match: Any) -> None:
     self.match = match
 
-  def create_window(self):
+  def create_window(self) -> None:
     self.tk = Tk()
 
     self.canvas = Canvas(
@@ -22,7 +23,7 @@ class MatchView:
     )
     self.canvas.pack(padx=0, pady=0)
 
-  def draw_chrome(self):
+  def draw_chrome(self) -> None:
     self.canvas.delete("all")
 
     # Draw the match info
@@ -49,7 +50,7 @@ class MatchView:
       text=text
     )
 
-  def draw_game(self):
+  def draw_game(self) -> None:
     padding = Coord(10, 30)
     self.game_view = GameView(
       self.canvas,
@@ -64,35 +65,34 @@ class MatchView:
     )
     self.game_view.draw()
 
-  def run_tk_mainloop_once(self):
+  def run_tk_mainloop_once(self) -> None:
     self.tk.update_idletasks()
     self.tk.update()
 
-  def draw(self):
+  def draw(self) -> None:
     self.draw_chrome()
     self.draw_game()
 
-  def run(self):
+  def run(self) -> None:
     while self.match.winner is None:
       self.match.pre_tick()
       self.draw()
       self.run_tk_mainloop_once()
-      if self.match.tick():
-        self.match.start_game()
+      self.match.tick()
 
 
-def display_board(board):
+def display_board(board: Any) -> None:
   """crude function to display a board for debugging purposes"""
-  from autogamen.ai.bozo import BozoPlayer  # noqa: PLC0415
-
+  from autogamen.ai.players import BozoPlayer  # noqa: PLC0415
   from autogamen.game.game_types import Color  # noqa: PLC0415
   from autogamen.game.match import Match  # noqa: PLC0415
 
-  match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
-  match.start()
+  match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)], point_goal=1)
+  match.pre_tick()
+  assert match.current_game is not None
   match.current_game.board = board
   match_view = MatchView(match)
   match_view.create_window()
   match_view.draw_chrome()
-  match_view.draw_board()
+  match_view.draw_game()
   mainloop()

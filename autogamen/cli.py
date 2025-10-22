@@ -134,7 +134,7 @@ def battle(
     def _fmt_percent(p: float) -> str:
         return f"{p:.1%}"
 
-    def run_match_args(args: tuple) -> Match:
+    def run_match_args(args: tuple[Any, ...]) -> Match:
         """Wrapper to configure logging in subprocess"""
         verbosity, white_cls, black_cls, point_limit = args
         numeric_level = getattr(logging, verbosity.upper(), None)
@@ -143,19 +143,15 @@ def battle(
         logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
         match = Match([white_cls(Color.White), black_cls(Color.Black)], point_limit)
-        match.start_game()
         while True:
             if match.tick():
-                if match.winner is not None:
-                    game_count = len(match.games)
-                    logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
-                    for color, wins in Counter(game.winner.color for game in match.games).items():
-                        logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
-                    return match
-                else:
-                    game = match.current_game
-                    logging.info(f"Game ended: {game.winner.color} won with {game.points} points after {game.turn_number} turns.")
-                    match.start_game()
+                assert match.winner is not None
+                game_count = len(match.games)
+                logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
+                winners = [g.winner for g in match.games if g.winner]
+                for color, wins in Counter(w.color for w in winners).items():  # type: ignore[attr-defined]
+                    logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
+                return match
 
     # Run the matches
     with Pool(processes=parallelism) as pool:
@@ -164,7 +160,7 @@ def battle(
 
     # Print results
     print(f"{sum(len(match.games) for match in completed_matches)} games finished:")
-    win_counts = Counter(match.winner.color for match in completed_matches)
+    win_counts = Counter(match.winner.color for match in completed_matches if match.winner)
     for player in completed_matches[0].players:
         wins = win_counts[player.color]
         print(f"{type(player).__name__} ({player.color}) won {wins} matches ({_fmt_percent(wins / len(completed_matches))})")
@@ -235,7 +231,7 @@ def headless(
     def _fmt_percent(p: float) -> str:
         return f"{p:.1%}"
 
-    def run_match_args(args: tuple) -> Match:
+    def run_match_args(args: tuple[Any, ...]) -> Match:
         """Wrapper to configure logging in subprocess"""
         verbosity, white_cls, black_cls, point_limit = args
         numeric_level = getattr(logging, verbosity.upper(), None)
@@ -244,19 +240,15 @@ def headless(
         logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
 
         match = Match([white_cls(Color.White), black_cls(Color.Black)], point_limit)
-        match.start_game()
         while True:
             if match.tick():
-                if match.winner is not None:
-                    game_count = len(match.games)
-                    logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
-                    for color, wins in Counter(game.winner.color for game in match.games).items():
-                        logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
-                    return match
-                else:
-                    game = match.current_game
-                    logging.info(f"Game ended: {game.winner.color} won with {game.points} points after {game.turn_number} turns.")
-                    match.start_game()
+                assert match.winner is not None
+                game_count = len(match.games)
+                logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
+                winners = [g.winner for g in match.games if g.winner]
+                for color, wins in Counter(w.color for w in winners).items():  # type: ignore[attr-defined]
+                    logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
+                return match
 
     # Run the matches
     with Pool(processes=parallelism) as pool:
@@ -265,7 +257,7 @@ def headless(
 
     # Print results
     print(f"{sum(len(match.games) for match in completed_matches)} games finished:")
-    win_counts = Counter(match.winner.color for match in completed_matches)
+    win_counts = Counter(match.winner.color for match in completed_matches if match.winner)
     for player in completed_matches[0].players:
         wins = win_counts[player.color]
         print(f"{type(player).__name__} ({player.color}) won {wins} matches ({_fmt_percent(wins / len(completed_matches))})")

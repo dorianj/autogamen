@@ -1,4 +1,5 @@
 import time
+from typing import Any
 
 from autogamen.ai.players import Player
 from autogamen.game.game_types import Move, TurnAction
@@ -8,18 +9,18 @@ from .game_view import Coord
 
 class HumanPlayer(Player):
   # All moves this player could do on this turn
-  all_possible_moves = []
+  all_possible_moves: list[tuple[Move, ...]] = []
 
   # After user clicks on a point, set it to this.
-  half_selected_point = None
+  half_selected_point: int | str | None = None
 
   # Moves that have been selected
-  selected_moves = tuple()
+  selected_moves: tuple[Move, ...] = tuple()
 
   # Board as it was before this turn started
-  board_before_turn = None
+  board_before_turn: Any | None = None
 
-  def extract_point(self, point_tag):
+  def extract_point(self, point_tag: str) -> int | None:
     if not point_tag:
       return None
 
@@ -29,15 +30,16 @@ class HumanPlayer(Player):
 
     return None
 
-  def tags_at_coord(self, coord):
+  def tags_at_coord(self, coord: Coord) -> tuple[str, ...]:
     closest = self.match_view.canvas.find_closest(coord.x, coord.y)
 
     if not closest:
-      return None
+      return tuple()
 
-    return self.match_view.canvas.gettags(closest)
+    tags = self.match_view.canvas.gettags(closest)
+    return tuple(tags) if tags else tuple()
 
-  def target_for_tags(self, tags):
+  def target_for_tags(self, tags: tuple[str, ...]) -> int | str | None:
     for tag in tags:
       if tag == "bar":
         return "bar"
@@ -50,17 +52,17 @@ class HumanPlayer(Player):
 
     return None
 
-  def have_complete_turn_selected(self):
+  def have_complete_turn_selected(self) -> bool:
     return tuple(self.selected_moves) in self.all_possible_moves
 
-  def remaining_moves(self):
+  def remaining_moves(self) -> Any:
     # Return generator individual moves that are possible given self.selected_moves
     for move in self.all_possible_moves:
       if len(move) > len(self.selected_moves) and move[:len(self.selected_moves)] == self.selected_moves:
         yield move[len(self.selected_moves)]
 
 
-  def draw_turn_selector(self, coord):
+  def draw_turn_selector(self, coord: Coord) -> None:
     tags = ["turn_selector"]
     # Add a rectangle to the click point
     self.match_view.canvas.create_rectangle(
@@ -93,16 +95,16 @@ class HumanPlayer(Player):
           tags=tags + [f"point:{allowed_move.destination_point_number}"],
         )
 
-  def remove_from_canvas_by_tag(self, tag):
+  def remove_from_canvas_by_tag(self, tag: str) -> None:
     for item in self.match_view.canvas.find_withtag(tag):
       self.match_view.canvas.delete(item)
 
-  def clear_half_turn_selector(self):
+  def clear_half_turn_selector(self) -> None:
     self.remove_from_canvas_by_tag("turn_selector")
 
-  def allowed_moves_from_target(self, target):
+  def allowed_moves_from_target(self, target: int | str | None) -> list[Move]:
     # Find moves with this point as a starting point
-    def _filter_move(move):
+    def _filter_move(move: Move) -> bool:
       return (
         (move.point_number == Move.Bar and target == "bar") or
         (move.point_number == target)
@@ -110,10 +112,12 @@ class HumanPlayer(Player):
 
     return list(filter(_filter_move, set(self.remaining_moves())))
 
-  def complete_half_move(self, move):
+  def complete_half_move(self, move: Move) -> None:
     self.half_selected_point = None
     self.selected_moves += (move,)
     self.clear_half_turn_selector()
+    assert self.board_before_turn is not None
+    assert self.match_view.match.current_game is not None
     self.match_view.match.current_game.board = self.board_before_turn.copy_apply_moves(self.selected_moves)
     self.match_view.draw()
 
@@ -133,11 +137,11 @@ class HumanPlayer(Player):
         tags=["turn_completer", "undo"],
       )
 
-  def complete_turn(self):
+  def complete_turn(self) -> None:
     self.turn_finished = True
     self.remove_from_canvas_by_tag("turn_completer")
 
-  def mouse_click(self, click):
+  def mouse_click(self, click: Any) -> None:
     click_coord = Coord(click.x, click.y)
     target_tags = self.tags_at_coord(click_coord)
 
@@ -150,6 +154,8 @@ class HumanPlayer(Player):
 
     if "undo" in target_tags:
       self.selected_moves = tuple()
+      assert self.board_before_turn is not None
+      assert self.match_view.match.current_game is not None
       self.match_view.match.current_game.board = self.board_before_turn.mutable_copy()
       self.match_view.draw()
     elif self.have_complete_turn_selected():
@@ -175,16 +181,17 @@ class HumanPlayer(Player):
       else:
         self.half_selected_point = None
 
-  def attach(self, match_view):
+  def attach(self, match_view: Any) -> None:
     self.match_view = match_view
     self.match_view.canvas.bind('<Button>', self.mouse_click)
 
-  def action(self, possible_moves):
+  def action(self, possible_moves: Any) -> list[Any]:
     if not len(possible_moves):
       return [TurnAction.Pass]
 
     # Run the mainloop until we have an event.
     self.all_possible_moves = [move for move, board in possible_moves]
+    assert self.match_view.match.current_game is not None
     self.board_before_turn = self.match_view.match.current_game.board.frozen_copy()
     self.selected_moves = tuple()
     self.turn_finished = False
@@ -192,8 +199,10 @@ class HumanPlayer(Player):
       self.match_view.run_tk_mainloop_once()
       time.sleep(1/15.0)
 
+    assert self.board_before_turn is not None
+    assert self.match_view.match.current_game is not None
     self.match_view.match.current_game.board = self.board_before_turn.mutable_copy()
     return [TurnAction.Move, self.selected_moves]
 
-  def accept_doubling_cube(self):
+  def accept_doubling_cube(self) -> bool:
     return False

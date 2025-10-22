@@ -199,7 +199,7 @@ class _Board:
     elif move.destination_is_off:
       return self.can_bear_off(move.color)
     else:
-      return destination_point().can_land(move.color)
+      return bool(destination_point().can_land(move.color))
 
   def possible_moves(self, color: Color, dice: Any) -> set[Any]:
     """Returns the list of possible moves. Each item is a Set of Moves
@@ -240,6 +240,9 @@ class _Board:
 class FrozenBoard(_Board):
   """An Immutable Board.
   """
+  bar: tuple[int, ...]  # type: ignore[assignment]
+  off: tuple[int, ...]  # type: ignore[assignment]
+
   def __init__(self, points: Any, bar: list[int] | tuple[int, int] | None = None, off: list[int] | tuple[int, int] | None = None) -> None:
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
