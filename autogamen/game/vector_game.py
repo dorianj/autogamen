@@ -128,22 +128,13 @@ def _set_point(vec: npt.NDArray[np.float32], point_num: int, color: Color | None
     """update a point in the vector"""
     base_idx = (point_num - 1) * 8
 
+    # clear both colors first
+    vec[base_idx:base_idx + 8] = 0.0
+
     if color is None or count == 0:
-        # clear entire point - this is the slow path
-        vec[base_idx:base_idx + 8] = 0.0
         return
 
-    # fast path: only clear opponent's slots and set ours
     offset = 0 if color == Color.White else 4
-    other_offset = 4 - offset  # complement
-
-    # clear opponent side (4 individual assignments vs 4-element slice)
-    vec[base_idx + other_offset + 0] = 0.0
-    vec[base_idx + other_offset + 1] = 0.0
-    vec[base_idx + other_offset + 2] = 0.0
-    vec[base_idx + other_offset + 3] = 0.0
-
-    # set our side
     vec[base_idx + offset + 0] = 1.0 if count >= 1 else 0.0
     vec[base_idx + offset + 1] = 1.0 if count >= 2 else 0.0
     vec[base_idx + offset + 2] = 1.0 if count >= 3 else 0.0
