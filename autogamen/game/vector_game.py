@@ -253,8 +253,10 @@ def possible_moves(vec: npt.NDArray[np.float32], color: Color, dice: tuple[int, 
 
                 # early rejection: skip points without our checkers
                 if point_num > 0:  # not bar
-                    source_color, source_count = _get_point_color_count(current_vec, point_num)
-                    if source_color != color or source_count == 0:
+                    # inline point color check for hot path performance
+                    base_idx = (point_num - 1) * 8
+                    offset = 0 if color == Color.White else 4
+                    if current_vec[base_idx + offset] < 0.5:  # no checkers of our color
                         continue
 
                 move = Move(color, point_num, die)
