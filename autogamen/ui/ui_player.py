@@ -1,7 +1,7 @@
 import time
 
+from autogamen.game.game_types import Move, TurnAction
 from autogamen.game.player import Player
-from autogamen.game.types import Move, TurnAction
 
 from .types import Coord
 

@@ -11,8 +11,8 @@ from datetime import datetime
 from multiprocessing import Pool
 
 from autogamen.ai.mlp import MLPPlayer, Net
+from autogamen.game.game_types import Color
 from autogamen.game.match import Match
-from autogamen.game.types import Color
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--generations", help="Number of generations to run", default=10, type=int)

@@ -4,8 +4,8 @@ import torch
 import torch.autograd
 import torch.nn as nn
 
+from autogamen.game.game_types import Color, TurnAction
 from autogamen.game.player import Player
-from autogamen.game.types import Color, TurnAction
 
 
 class Net(nn.Module):

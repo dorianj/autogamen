@@ -1,6 +1,6 @@
 from math import floor
 
-from autogamen.game.types import Color
+from autogamen.game.game_types import Color
 
 from .types import Area, Coord, Rect
 

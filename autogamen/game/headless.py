@@ -5,8 +5,8 @@ import sys
 from collections import Counter
 from multiprocessing import Pool
 
+from autogamen.game.game_types import Color
 from autogamen.game.match import Match
-from autogamen.game.types import Color
 
 
 def _fmt_percent(p: float) -> str:

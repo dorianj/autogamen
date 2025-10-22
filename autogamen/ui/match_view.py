@@ -1,6 +1,6 @@
 from tkinter import Canvas, Tk, mainloop
 
-from autogamen.game.types import Color
+from autogamen.game.game_types import Color
 
 from .game_view import GameView
 from .types import Area, Coord, Rect
@@ -86,8 +86,8 @@ def display_board(board):
   """crude function to display a board for debugging purposes"""
   from autogamen.ai.bozo import BozoPlayer  # noqa: PLC0415
 
+  from autogamen.game.game_types import Color  # noqa: PLC0415
   from autogamen.game.match import Match  # noqa: PLC0415
-  from autogamen.game.types import Color  # noqa: PLC0415
 
   match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
   match.start()

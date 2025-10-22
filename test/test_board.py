@@ -1,7 +1,7 @@
 import unittest
 
 from autogamen.game.board import Board, FrozenBoard
-from autogamen.game.types import Color, Dice, Move, Point
+from autogamen.game.game_types import Color, Dice, Move, Point
 
 from .performance import assertRuntime
 

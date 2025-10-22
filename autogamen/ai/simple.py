@@ -1,8 +1,8 @@
 import random
 from collections import defaultdict
 
+from autogamen.game.game_types import TurnAction
 from autogamen.game.player import Player
-from autogamen.game.types import TurnAction
 
 
 class BozoPlayer(Player):

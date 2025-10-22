@@ -1,8 +1,8 @@
 """UI match runner - migrated from run_ui_match.py"""
 
 from autogamen.ai.simple import DeltaPlayer
+from autogamen.game.game_types import Color
 from autogamen.game.match import Match
-from autogamen.game.types import Color
 from autogamen.ui.match_view import MatchView
 from autogamen.ui.ui_player import HumanPlayer
 
