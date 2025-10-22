@@ -1,7 +1,7 @@
 import logging
 
 from .board import Board
-from .types import Color, Dice, Point, TurnAction
+from .game_types import Color, Dice, Point, TurnAction
 
 
 class Game:

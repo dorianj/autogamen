@@ -1,6 +1,6 @@
 
 from .game import Game
-from .types import Color
+from .game_types import Color
 
 
 class Match:

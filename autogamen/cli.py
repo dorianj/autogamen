@@ -32,7 +32,7 @@ def cli() -> None:
 
     workflow overview:
       1. train      → train AI models using various approaches
-      2. eval       → evaluate model performance
+      2. battle     → run battles between models
       3. play       → run games with trained models
     """
 
@@ -65,43 +65,56 @@ def train(annotations_dir: Path, promote: bool) -> None:
 
 
 @cli.command()
-@click.argument("checkpoint")
+@click.argument("model1")
+@click.argument("model2")
 @click.option(
-    "--annotations-dir",
-    type=click.Path(exists=True, path_type=Path),
-    default=Path("tmp/annotations"),
-    help="directory containing annotations (default: tmp/annotations)",
+    "--matches",
+    type=int,
+    default=10,
+    help="number of matches to play (default: 10)",
 )
 @click.option(
-    "--limit",
+    "--match-points",
+    type=int,
+    default=5,
+    help="points per match (default: 5)",
+)
+@click.option(
+    "--parallelism",
+    type=int,
+    default=1,
+    help="number of processes to use (default: 1)",
+)
+@click.option(
+    "--seed",
     type=int,
     default=None,
-    help="limit number of games to evaluate (default: no limit)",
+    help="random seed for deterministic results",
 )
 @with_log_level
-def eval(
-    checkpoint: str,
-    annotations_dir: Path,
-    limit: int | None,
+def battle(
+    model1: str,
+    model2: str,
+    matches: int,
+    match_points: int,
+    parallelism: int,
+    seed: int | None,
 ) -> None:
-    """evaluate a checkpoint against annotations.
+    """run battles between two models.
 
-    measures how well a model performs by comparing predictions to stored
-    annotations or by playing evaluation games.
+    runs multiple matches between two models and reports statistics.
 
-    checkpoint can be:
-    - path to .pt file (local model checkpoint)
-    - model name
-
-    results are written to tmp/eval/{timestamp}_eval.json for later inspection.
+    models can be:
+    - path to .torch checkpoint file
+    - player class name (e.g., Bozo, Delta)
 
     examples:
-      autogamen eval models/model.pt                     # evaluate active model
-      autogamen eval tmp/train/model_abc123.pt           # specific checkpoint
-      autogamen eval models/model.pt --limit 100         # quick eval on subset
+      autogamen battle Bozo Delta                                  # 10 matches
+      autogamen battle models/net.torch Bozo --matches 100         # 100 matches
+      autogamen battle models/net1.torch models/net2.torch         # two checkpoints
     """
-    # TODO: Implement evaluation logic
-    print("Evaluation not yet implemented")
+    from autogamen.game.headless import run_headless_matches
+    run_headless_matches(model1, model2, match_points, matches, parallelism, seed)
 
 
 @cli.command()

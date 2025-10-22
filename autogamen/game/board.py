@@ -1,6 +1,6 @@
 from collections import Counter
 
-from .types import Color, FrozenPoint, Move
+from .game_types import Color, FrozenPoint, Move
 
 
 class _Board:
