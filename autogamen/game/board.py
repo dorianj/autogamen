@@ -1,10 +1,11 @@
 from collections import Counter
+from typing import Any
 
 from .game_types import Color, FrozenPoint, Move
 
 
 class _Board:
-  def __init__(self, points, bar=None, off=None):
+  def __init__(self, points: Any, bar: list[int] | None = None, off: list[int] | None = None) -> None:
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
 
@@ -12,7 +13,9 @@ class _Board:
     self.bar = list(bar or self.color_counter())
     self.off = list(off or self.color_counter())
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, _Board):
+      return False
     return (
       all(self.bar[color.value] == other.bar[color.value] and
           self.off[color.value] == other.off[color.value]
@@ -20,7 +23,7 @@ class _Board:
       self.points == other.points
     )
 
-  def frozen_copy(self):
+  def frozen_copy(self) -> "FrozenBoard":
     """Returns an immutable FrozenBoard copy of this object.
     """
     if isinstance(self, FrozenBoard):
@@ -28,13 +31,13 @@ class _Board:
 
     return FrozenBoard(self.points, self.bar, self.off)
 
-  def mutable_copy(self):
+  def mutable_copy(self) -> "Board":
     """Returns a mutable Board copy of this object.
     """
     return Board(self.points, self.bar, self.off)
 
   @staticmethod
-  def color_counter(count_dict=None):
+  def color_counter(count_dict: dict[Color, int] | None = None) -> list[int]:
     """Returns an object representing off or bar
     """
     if count_dict is None:
@@ -45,7 +48,7 @@ class _Board:
         c[color.value] = count_dict.get(color, 0)
       return c
 
-  def visual_str_repr(self):
+  def visual_str_repr(self) -> str:
     rows = ["", "", ""]
     for point_number in range(1, 25):
       point = self.point_at_number(point_number)
@@ -59,10 +62,10 @@ class _Board:
     return "\n".join(rows)
 
 
-  def pip_count(self):
+  def pip_count(self) -> Counter[Color]:
     """Returns a dict of pip count (sum of distance from fully beared off) for each player
     """
-    counter = Counter()
+    counter: Counter[Color] = Counter()
     for point_number in range(1,25):
       point = self.point_at_number(point_number)
       if point.color is not None:
@@ -74,7 +77,7 @@ class _Board:
 
     return counter
 
-  def can_bear_off(self, color):
+  def can_bear_off(self, color: Color) -> bool:
     if self.bar[color.value] != 0:
       return False
 
@@ -88,7 +91,7 @@ class _Board:
 
     return True
 
-  def winner(self):
+  def winner(self) -> Color | None:
     """Returns the winning player's color, or None if no one has won
     """
     for color in Color:
@@ -97,7 +100,7 @@ class _Board:
 
     return None
 
-  def winner_stakes(self):
+  def winner_stakes(self) -> int:
     """Returns 3 for a backgammon, 2 for a gammon, and 1 for a regular win.
     """
     winner = self.winner()
@@ -122,19 +125,19 @@ class _Board:
       # If the opponent has not yet borne off any checkers.
       return 2
 
-  def home_board_range(self, color):
+  def home_board_range(self, color: Color) -> list[int]:
     if color == Color.Black:
       return [1, 6]
     else:
       return [19, 24]
 
-  def point_at_number(self, point_number):
+  def point_at_number(self, point_number: int) -> Any:
     if point_number == 0:
       raise Exception("Board.point_at_number attempted to get the bar")
 
     return self.points[point_number - 1]
 
-  def copy_apply_moves(self, moves):
+  def copy_apply_moves(self, moves: Any) -> "FrozenBoard":
     """Returns a frozen copy of self with :moves: applied. Less readable than
        Board.apply_move, but more performant. Note that all moves must have the
        same color, if that invariant isn't held behavior is undefined.
@@ -158,6 +161,7 @@ class _Board:
       if move.destination_is_off:
         new_off[move.color.value] += 1
       else:
+        assert move.destination_point_number is not None
         dest_point = new_points[move.destination_point_number - 1]
         if isinstance(dest_point, FrozenPoint):
           new_points[move.destination_point_number - 1] = dest_point = dest_point.mutable_copy()
@@ -170,19 +174,20 @@ class _Board:
 
     return FrozenBoard(new_points, new_bar, new_off)
 
-  def move_is_valid(self, move):
+  def move_is_valid(self, move: Move) -> bool:
     """Returns whether a single move is allowed, i.e. that if it would bear off,
        the player is currently allowed to bear off, that it doesn't try to hit
        a block, that it is coming from a non-empty space, etc.
     """
 
     # This may be incalcuable, so lazily compute it
-    def destination_point():
+    def destination_point() -> Any:
+      assert move.destination_point_number is not None
       return self.point_at_number(move.destination_point_number)
 
     # This is coming off of the bar.
     if move.point_number == Move.Bar:
-      return self.bar[move.color.value] > 0 and destination_point().can_land(move.color)
+      return bool(self.bar[move.color.value] > 0 and destination_point().can_land(move.color))
 
     # If this color has anything on the bar, can't move on the board
     if self.bar[move.color.value] > 0:
@@ -196,10 +201,10 @@ class _Board:
     else:
       return destination_point().can_land(move.color)
 
-  def possible_moves(self, color, dice):
+  def possible_moves(self, color: Color, dice: Any) -> set[Any]:
     """Returns the list of possible moves. Each item is a Set of Moves
     """
-    def _worker(board, remaining_dice):
+    def _worker(board: Any, remaining_dice: Any) -> set[Any]:
       moves = set()
       for d, die in enumerate(set(remaining_dice)):
         # Attempt to find moves on the board or bar. We're gonna do a little
@@ -235,33 +240,35 @@ class _Board:
 class FrozenBoard(_Board):
   """An Immutable Board.
   """
-  def __init__(self, points, bar=None, off=None):
+  def __init__(self, points: Any, bar: list[int] | tuple[int, int] | None = None, off: list[int] | tuple[int, int] | None = None) -> None:
     if len(points) != 24:
       raise Exception(f"{len(points)} board passed in.")
 
     self.points = tuple(point.frozen_copy() for point in points)
-    self.bar = tuple(bar or Board.color_counter())
-    self.off = tuple(off or Board.color_counter())
+    bar_list = list(bar) if bar else Board.color_counter()
+    off_list = list(off) if off else Board.color_counter()
+    self.bar = tuple(bar_list)
+    self.off = tuple(off_list)
     self._hash = hash((self.points, self.bar, self.off))
 
-  def __hash__(self):
+  def __hash__(self) -> int:
     return self._hash
 
 
 class Board(_Board):
-  def add_off(self, color):
+  def add_off(self, color: Color) -> None:
     self.off[color.value] += 1
 
-  def add_bar(self, color):
+  def add_bar(self, color: Color) -> None:
     self.bar[color.value] += 1
 
-  def subtract_bar(self, color):
+  def subtract_bar(self, color: Color) -> None:
     if self.bar[color.value] < 1:
       raise Exception("Board.subtract_bar: bar is empty")
 
     self.bar[color.value] -= 1
 
-  def apply_move(self, move):
+  def apply_move(self, move: Move) -> None:
     """Mutate this board to apply :move:
     """
     if not self.move_is_valid(move):
@@ -278,6 +285,7 @@ class Board(_Board):
     if move.destination_is_off:
       self.add_off(move.color)
     else:
+      assert move.destination_point_number is not None
       destination_point = self.point_at_number(move.destination_point_number)
 
       if destination_point.can_hit(move.color):

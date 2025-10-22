@@ -1,8 +1,8 @@
 from collections import namedtuple
 from math import floor
+from typing import Any
 
 from autogamen.game.game_types import Color
-
 
 # UI geometry types
 Coord = namedtuple('Coord', ['x', 'y'])
@@ -10,12 +10,12 @@ Rect = namedtuple('Rect', ['width', 'height'])
 Area = namedtuple('Area', ['offset', 'rect'])
 
 
-def choose_color(white, white_color="#ffffff", black_color="#000000"):
+def choose_color(white: bool, white_color: str = "#ffffff", black_color: str = "#000000") -> str:
   """Ternary statement with defaults."""
   return white_color if white else black_color
 
 class GameView:
-  def __init__(self, canvas, area, game):
+  def __init__(self, canvas: Any, area: Any, game: Any) -> None:
     self.canvas = canvas
     self.area = area
     self.game = game
@@ -33,13 +33,13 @@ class GameView:
     self.doubling_cube_size = 25
     self.die_size = 18
 
-  def offset(self, *args):
+  def offset(self, *args: Any) -> Any:
     """ Returns the offset point. Accepts x/y args or a single Coord
     """
     point = args[0] if len(args) == 1 else Coord(args[0], args[1])
     return Coord(point.x + self.area.offset.x, point.y + self.area.offset.y)
 
-  def draw_chrome(self):
+  def draw_chrome(self) -> None:
     """ Draw a border around the board
     """
     self.canvas.create_rectangle(
@@ -47,7 +47,7 @@ class GameView:
       self.offset(self.area.rect.width, self.area.rect.height),
     )
 
-  def _point_coord(self, point_number):
+  def _point_coord(self, point_number: int) -> Any:
     """Returns the Coord coordinate for a given point number
     """
     mod = (point_number - 1) % 12
@@ -68,24 +68,24 @@ class GameView:
 
     return Coord(x_pos, y_pos)
 
-  def _y_reflected(self, y, direction):
+  def _y_reflected(self, y: float, direction: int) -> float:
     """Given a coordinate :y:, position it given :direction:. If direction is
        1 (downwards), y is unadjusted. If direction is -1 (upwards), it will be
        subtracted from the height of the board.
     """
     return y if direction == 1 else self.area.rect.height - y
 
-  def _point_direction(self, point_number):
+  def _point_direction(self, point_number: int) -> int:
     """Returns a direction, that is, -1 for upwards and 1 for downwards. Useful
        when drawing stuff going up or down the board."""
     return -1 if point_number <= 12 else 1
 
-  def _color_direction(self, color):
+  def _color_direction(self, color: Color) -> int:
     """Same as _point_direction, but for color's home sides.
     """
     return 1 if color is Color.Black else -1
 
-  def draw_point_board(self, point_number):
+  def draw_point_board(self, point_number: int) -> None:
     coord = self._point_coord(point_number)
     top_sign = self._point_direction(point_number)
 
@@ -94,7 +94,7 @@ class GameView:
       self.offset(coord.x, coord.y),
       self.offset(coord.x + self.point_width, coord.y),
       self.offset(coord.x + self.point_width / 2, coord.y + self.point_height * top_sign),
-      fill=choose_color(point_number % 2, "#990000", "#A5A5A5"),
+      fill=choose_color(point_number % 2 == 0, "#990000", "#A5A5A5"),
       tags=[f"point:{point_number}"]
     )
 
@@ -106,7 +106,7 @@ class GameView:
       tags=[f"point:{point_number}"]
     )
 
-  def draw_pip_stack(self, count, color, direction, area, tags=()):
+  def draw_pip_stack(self, count: int, color: Color, direction: int, area: Any, tags: tuple[str, ...] = ()) -> None:
     """Draw a stack of pips
       :count: int, number of pips to draw
       :color: Color
@@ -145,7 +145,7 @@ class GameView:
         tags=tags,
       )
 
-  def draw_point_pips(self, point_number, point):
+  def draw_point_pips(self, point_number: int, point: Any) -> None:
     """Draw pips on a point
     """
     coord = self._point_coord(point_number)
@@ -159,17 +159,17 @@ class GameView:
         Coord(coord.x, coord.y),
         Rect(self.point_width, self.point_height)
       ),
-      [f"point:{point_number}"]
+      tuple([f"point:{point_number}"])
     )
 
-  def draw_points(self):
+  def draw_points(self) -> None:
     for i, point in enumerate(self.game.board.points):
       point_number = i + 1
       self.draw_point_board(point_number)
       self.draw_point_pips(point_number, point)
 
 
-  def draw_bar(self):
+  def draw_bar(self) -> None:
     center_x = self.playable_width / 2
     bar_start_x = center_x - self.bar_width / 2
 
@@ -184,11 +184,11 @@ class GameView:
 
     # Draw the dice on the player's side
     dice_padding = 10
-    def dice_offset(): # TODO would be nice to use _y_reflected
+    def dice_offset() -> float: # TODO would be nice to use _y_reflected
       if self.game.active_color == Color.White:
-        return dice_padding
+        return float(dice_padding)
       else:
-        return self.area.rect.height - dice_padding - self.die_size * 2
+        return float(self.area.rect.height - dice_padding - self.die_size * 2)
 
     for i in [0, 1]:
       self.canvas.create_rectangle(
@@ -224,7 +224,7 @@ class GameView:
           Coord(bar_start_x, self._y_reflected(bar_pips_offset, direction)),
           Rect(self.bar_width, bar_pips_height)
         ),
-        tags=["bar"]
+        tuple(["bar"])
       )
 
     # Draw the doubling cube in the center
@@ -249,7 +249,7 @@ class GameView:
       text=self.game.doubling_cube
     )
 
-  def draw_off(self):
+  def draw_off(self) -> None:
     # Draw the background of the off-board area
     off_start_x = self.playable_width
     self.canvas.create_rectangle(
@@ -281,10 +281,10 @@ class GameView:
           Coord(off_pips_x, self._y_reflected(off_pips_y, direction)),
           Rect(self.off_width - separator_width, off_pips_height)
         ),
-        ["off"],
+        tuple(["off"])
       )
 
-  def draw(self):
+  def draw(self) -> None:
     self.draw_chrome()
     self.draw_points()
     self.draw_bar()
