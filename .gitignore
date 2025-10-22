@@ -4,6 +4,7 @@ support/
 settings.local.json
 out/
 .hypothesis/
+*.egg-info/
 
 # gnubg build artifacts
 vendor/gnubg/.deps/
