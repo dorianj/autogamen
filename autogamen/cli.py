@@ -113,8 +113,60 @@ def battle(
       autogamen battle models/net.torch Bozo --matches 100         # 100 matches
       autogamen battle models/net1.torch models/net2.torch         # two checkpoints
     """
-    from autogamen.game.headless import run_headless_matches
-    run_headless_matches(model1, model2, match_points, matches, parallelism, seed)
+    import random
+    from collections import Counter
+    from multiprocessing import Pool
+    from autogamen.game.game_types import Color
+    from autogamen.game.match import Match
+
+    # Random seed
+    if seed:
+        random.seed(seed)
+
+    # Initialize players - TODO: make this more flexible
+    players_cls = [globals().get(f"{name}Player") for name in (model1, model2)]
+    if None in players_cls:
+        raise ValueError(f"Unknown player type(s): {model1}, {model2}")
+
+    verbosity = logging.getLevelName(logging.getLogger().getEffectiveLevel()).lower()
+
+    def _fmt_percent(p: float) -> str:
+        return f"{p:.1%}"
+
+    def run_match_args(args: tuple) -> Match:
+        """Wrapper to configure logging in subprocess"""
+        verbosity, white_cls, black_cls, point_limit = args
+        numeric_level = getattr(logging, verbosity.upper(), None)
+        if not isinstance(numeric_level, int):
+            raise ValueError(f'Invalid log level: {verbosity}')
+        logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
+
+        match = Match([white_cls(Color.White), black_cls(Color.Black)], point_limit)
+        match.start_game()
+        while True:
+            if match.tick():
+                if match.winner is not None:
+                    game_count = len(match.games)
+                    logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
+                    for color, wins in Counter(game.winner.color for game in match.games).items():
+                        logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
+                    return match
+                else:
+                    game = match.current_game
+                    logging.info(f"Game ended: {game.winner.color} won with {game.points} points after {game.turn_number} turns.")
+                    match.start_game()
+
+    # Run the matches
+    with Pool(processes=parallelism) as pool:
+        args_list = [(verbosity, players_cls[0], players_cls[1], match_points) for _ in range(matches)]
+        completed_matches = pool.map(run_match_args, args_list)
+
+    # Print results
+    print(f"{sum(len(match.games) for match in completed_matches)} games finished:")
+    win_counts = Counter(match.winner.color for match in completed_matches)
+    for player in completed_matches[0].players:
+        wins = win_counts[player.color]
+        print(f"{type(player).__name__} ({player.color}) won {wins} matches ({_fmt_percent(wins / len(completed_matches))})")
 
 
 @cli.command()
@@ -161,8 +213,60 @@ def headless(
       autogamen headless Bozo Delta --matches 100          # 100 matches
       autogamen headless Bozo Delta --parallelism 4        # parallel execution
     """
-    from autogamen.game.headless import run_headless_matches
-    run_headless_matches(white, black, match_points, matches, parallelism, seed)
+    import random
+    from collections import Counter
+    from multiprocessing import Pool
+    from autogamen.game.game_types import Color
+    from autogamen.game.match import Match
+
+    # Random seed
+    if seed:
+        random.seed(seed)
+
+    # Initialize players - TODO: make this more flexible
+    players_cls = [globals().get(f"{name}Player") for name in (white, black)]
+    if None in players_cls:
+        raise ValueError(f"Unknown player type(s): {white}, {black}")
+
+    verbosity = logging.getLevelName(logging.getLogger().getEffectiveLevel()).lower()
+
+    def _fmt_percent(p: float) -> str:
+        return f"{p:.1%}"
+
+    def run_match_args(args: tuple) -> Match:
+        """Wrapper to configure logging in subprocess"""
+        verbosity, white_cls, black_cls, point_limit = args
+        numeric_level = getattr(logging, verbosity.upper(), None)
+        if not isinstance(numeric_level, int):
+            raise ValueError(f'Invalid log level: {verbosity}')
+        logging.basicConfig(level=numeric_level, format="%(asctime)s: %(message)s")
+
+        match = Match([white_cls(Color.White), black_cls(Color.Black)], point_limit)
+        match.start_game()
+        while True:
+            if match.tick():
+                if match.winner is not None:
+                    game_count = len(match.games)
+                    logging.info(f"Match ended: {match.winner.color} won with {match.points[match.winner.color]} points in {game_count} games with {match.turn_count} turns")
+                    for color, wins in Counter(game.winner.color for game in match.games).items():
+                        logging.info(f"{color} won {wins} games ({_fmt_percent(wins / game_count)})")
+                    return match
+                else:
+                    game = match.current_game
+                    logging.info(f"Game ended: {game.winner.color} won with {game.points} points after {game.turn_number} turns.")
+                    match.start_game()
+
+    # Run the matches
+    with Pool(processes=parallelism) as pool:
+        args_list = [(verbosity, players_cls[0], players_cls[1], match_points) for _ in range(matches)]
+        completed_matches = pool.map(run_match_args, args_list)
+
+    # Print results
+    print(f"{sum(len(match.games) for match in completed_matches)} games finished:")
+    win_counts = Counter(match.winner.color for match in completed_matches)
+    for player in completed_matches[0].players:
+        wins = win_counts[player.color]
+        print(f"{type(player).__name__} ({player.color}) won {wins} matches ({_fmt_percent(wins / len(completed_matches))})")
 
 
 @cli.command()
@@ -183,8 +287,22 @@ def ui(opponent: str, points: int) -> None:
       autogamen ui Delta                 # play against Delta
       autogamen ui Bozo --points 5       # 5-point match
     """
-    from autogamen.game.ui_match import run_ui_match
-    run_ui_match(opponent, points)
+    from autogamen.ai.players import DeltaPlayer
+    from autogamen.game.game_types import Color
+    from autogamen.game.match import Match
+    from autogamen.ui.match_view import MatchView
+    from autogamen.ui.ui_player import HumanPlayer
+
+    # TODO: make opponent selection more flexible
+    # For now, hardcode DeltaPlayer
+    opponent_cls = DeltaPlayer
+
+    human_player = HumanPlayer(Color.White)
+    match = Match([human_player, opponent_cls(Color.Black)], points)
+    match_view = MatchView(match)
+    match_view.create_window()
+    human_player.attach(match_view)
+    match_view.run()
 
 
 @cli.command(name="neuro-evolution")

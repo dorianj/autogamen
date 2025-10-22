@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 support/
 settings.local.json
+out/

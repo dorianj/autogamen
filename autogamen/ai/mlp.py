@@ -5,8 +5,8 @@ import torch
 import torch.autograd
 import torch.nn as nn
 
+from autogamen.ai.players import Player
 from autogamen.game.game_types import Color, TurnAction
-from autogamen.game.player import Player
 
 if TYPE_CHECKING:
     from autogamen.game.board import _Board

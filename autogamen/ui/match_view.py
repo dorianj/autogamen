@@ -2,8 +2,7 @@ from tkinter import Canvas, Tk, mainloop
 
 from autogamen.game.game_types import Color
 
-from .game_view import GameView
-from .types import Area, Coord, Rect
+from .game_view import Area, Coord, GameView, Rect
 
 
 class MatchView:

@@ -1,8 +1,13 @@
+from collections import namedtuple
 from math import floor
 
 from autogamen.game.game_types import Color
 
-from .types import Area, Coord, Rect
+
+# UI geometry types
+Coord = namedtuple('Coord', ['x', 'y'])
+Rect = namedtuple('Rect', ['width', 'height'])
+Area = namedtuple('Area', ['offset', 'rect'])
 
 
 def choose_color(white, white_color="#ffffff", black_color="#000000"):

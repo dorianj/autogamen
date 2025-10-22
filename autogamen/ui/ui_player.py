@@ -1,9 +1,9 @@
 import time
 
+from autogamen.ai.players import Player
 from autogamen.game.game_types import Move, TurnAction
-from autogamen.game.player import Player
 
-from .types import Coord
+from .game_view import Coord
 
 
 class HumanPlayer(Player):

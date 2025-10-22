@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import torch
 
 from autogamen.ai.mlp import MLPPlayer, Net
-from autogamen.ai.simple import BozoPlayer, DeltaPlayer
+from autogamen.ai.players import BozoPlayer, DeltaPlayer
 from autogamen.game.game import Game
 from autogamen.game.game_types import Color
 from autogamen.game.match import Match
