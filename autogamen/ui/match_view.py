@@ -84,10 +84,10 @@ class MatchView:
 
 def display_board(board):
   """crude function to display a board for debugging purposes"""
-  from autogamen.ai.bozo import BozoPlayer
+  from autogamen.ai.bozo import BozoPlayer  # noqa: PLC0415
 
-  from autogamen.game.match import Match
-  from autogamen.game.types import Color
+  from autogamen.game.match import Match  # noqa: PLC0415
+  from autogamen.game.types import Color  # noqa: PLC0415
 
   match = Match([BozoPlayer(Color.White), BozoPlayer(Color.Black)])
   match.start()

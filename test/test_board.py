@@ -185,20 +185,6 @@ class TestBoardMoves(unittest.TestCase):
       ])
     )
 
-  def test_single_pip_anywhere(self):
-    board = Board(
-      repeat_point(10) +
-      [Point(1, Color.White)] +
-      repeat_point(13)
-    )
-    self.assertEqual(
-      extract_moves(board.possible_moves(Color.White, Dice(roll=(1,2)))),
-      set([
-        (Move(Color.White, 11, 1), Move(Color.White, 12, 2)),
-        (Move(Color.White, 11, 2), Move(Color.White, 13, 1)),
-      ])
-    )
-
   def test_doubles(self):
     board = Board(
       repeat_point(10) +
@@ -470,7 +456,7 @@ class TestPipCount(unittest.TestCase):
     })
 
 
-class TestFrozenBoard(unittest.TestCase):
+class TestFrozenBoardApplyMoves(unittest.TestCase):
   def test_apply_move_identical(self):
     cases = [
       default_starting_points,

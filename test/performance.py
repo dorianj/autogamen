@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def assertRuntime(self, expected_time):
+def assertRuntime(self, expected_time):  # noqa: N802
   pr = cProfile.Profile()
   pr.enable()
   start_time = time.perf_counter()
