@@ -11,7 +11,7 @@ from datetime import datetime
 from multiprocessing import Pool
 from typing import Any
 
-from autogamen.ai.mlp import MLPPlayer, Net
+from autogamen.ai.neuro_evolution_net import NEMLPPlayer, NENet
 from autogamen.game.game_types import Color
 from autogamen.game.match import Match
 
@@ -37,7 +37,7 @@ def run_match_args(args: tuple[Any, ...]) -> "Match":
     return run_match(white_player, black_player)
 
 
-def run_match(white_player: "MLPPlayer", black_player: "MLPPlayer") -> "Match":
+def run_match(white_player: "NEMLPPlayer", black_player: "NEMLPPlayer") -> "Match":
     """Run a single match to completion"""
     match = Match([white_player, black_player], 1)
     while True:
@@ -51,14 +51,14 @@ def run_match(white_player: "MLPPlayer", black_player: "MLPPlayer") -> "Match":
             return match
 
 
-def run_generation(generation: int, nets: list["Net"], parallelism: int, mutation: float, crossover: float, population: int) -> list["Net"]:
+def run_generation(generation: int, nets: list["NENet"], parallelism: int, mutation: float, crossover: float, population: int) -> list["NENet"]:
     """Run a single generation of evolution"""
     print(f"Running generation {generation}...")
     player_count = len(nets)
 
     grouped_nets = (nets[i:i + 2] for i in range(0, len(nets), 2))
     match_players = list(
-        (MLPPlayer(Color.White, white_net), MLPPlayer(Color.Black, black_net))
+        (NEMLPPlayer(Color.White, white_net), NEMLPPlayer(Color.Black, black_net))
         for (white_net, black_net) in grouped_nets
     )
 
@@ -99,7 +99,7 @@ def net_directory() -> str:
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'nets')
 
 
-def write_net_to_file(nets: list["Net"], path: str) -> None:
+def write_net_to_file(nets: list["NENet"], path: str) -> None:
     """Save networks to file"""
     with open(path, 'wb') as fp:
         pickle.dump([net.weights for net in nets], fp)
@@ -126,7 +126,7 @@ def run_neuro_evolution(
     os.makedirs(net_dir, exist_ok=True)
 
     # Run the generations
-    nets = [Net() for _ in range(0, population)]
+    nets = [NENet() for _ in range(0, population)]
     for gen in range(0, generations):
         nets = run_generation(gen, nets, parallelism, mutation, crossover, population)
         write_net_to_file(nets, os.path.join(net_dir, f"net-{run_timestamp}-{gen}.pickle"))
