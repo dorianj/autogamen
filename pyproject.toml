@@ -4,12 +4,16 @@ version = "0.1.0"
 description = "Auto game playing with AI"
 requires-python = ">=3.13"
 dependencies = [
+    "click>=8.1.0",
     "future>=0.18.2",
     "numpy>=1.18.5",
     "Pillow>=8.1.1",
     "torch>=1.5.0",
     "torchvision>=0.6.0",
 ]
+
+[project.scripts]
+autogamen = "autogamen.cli:cli"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "C90", "UP", "W291", "PLC0415"]
