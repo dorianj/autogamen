@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import torch
+from tqdm import tqdm
 
 from autogamen.ai.mlp import MLPPlayer, Net, VectorMLPPlayer
 from autogamen.ai.players import BozoPlayer, DeltaPlayer
@@ -402,9 +403,7 @@ def run_reinforcement_learning(
     if len(checkpoint_paths):
         net, checkpoint = load_checkpoint(checkpoint_paths[-1])
         gen = checkpoint['game_count']
-        print(f"Loaded checkpoint file with {checkpoint['game_count']} games from {checkpoint['time']}")
     else:
-        print("Training net from scratch...")
         net = Net()
         gen = 0
 
@@ -418,7 +417,8 @@ def run_reinforcement_learning(
 
     white, black = VectorMLPPlayer(Color.White, net, True), VectorMLPPlayer(Color.Black, net, True)
 
-    for i in range(1, games + 1):
+    pbar = tqdm(range(1, games + 1), desc="training", unit="game")
+    for i in pbar:
         # Run training game
         game_metrics = run_game(white, black, net)
 
@@ -431,15 +431,18 @@ def run_reinforcement_learning(
         weight_norm = sum(torch.norm(p).item() for p in net.parameters())
         metrics.weight_norms.append(weight_norm)
 
-        # Progress logging
-        if i % 10 == 0:
+        # Update progress bar with recent metrics
+        if i >= 10:
             avg_len = sum(metrics.game_lengths[-10:]) / 10
             avg_td = sum(metrics.td_errors[-10:]) / 10
-            print(f"Game {i}/{games}: avg_len={avg_len:.1f}, avg_td_error={avg_td:.4f}, weight_norm={weight_norm:.2f}")
+            pbar.set_postfix({
+                'len': f'{avg_len:.1f}',
+                'td': f'{avg_td:.4f}',
+                'w': f'{weight_norm:.2f}'
+            })
 
         # Checkpointing
         if i % checkpoint_interval == 0:
-            print(f"Checkpointing at {i}")
             checkpoint_path = os.path.join(net_dir, f"net-{run_timestamp}-{i+gen:07d}.torch")
             write_checkpoint(checkpoint_path, net, i + gen)
 
