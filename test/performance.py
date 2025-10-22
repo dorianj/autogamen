@@ -2,11 +2,13 @@ import cProfile
 import io
 import pstats
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
 
 @contextmanager
-def assertRuntime(self, expected_time):  # noqa: N802
+def assertRuntime(self: Any, expected_time: float) -> Generator[None, None, None]:  # noqa: N802
   pr = cProfile.Profile()
   pr.enable()
   start_time = time.perf_counter()
