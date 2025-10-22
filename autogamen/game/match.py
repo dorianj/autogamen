@@ -1,7 +1,7 @@
-from collections import Counter
 
 from .game import Game
 from .types import Color
+
 
 class Match:
   def __init__(self, players, point_goal):

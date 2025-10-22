@@ -1,8 +1,10 @@
-from tkinter import Tk, Canvas, mainloop
+from tkinter import Canvas, Tk, mainloop
 
 from autogamen.game.types import Color
+
 from .game_view import GameView
 from .types import Area, Coord, Rect
+
 
 class MatchView:
   WINDOW_WIDTH = 600
@@ -83,6 +85,7 @@ class MatchView:
 def display_board(board):
   """crude function to display a board for debugging purposes"""
   from autogamen.ai.bozo import BozoPlayer
+
   from autogamen.game.match import Match
   from autogamen.game.types import Color
 

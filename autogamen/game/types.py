@@ -1,6 +1,6 @@
+import random
 from enum import Enum
 from functools import total_ordering
-import random
 
 
 class Color(Enum):

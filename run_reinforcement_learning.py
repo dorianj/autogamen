@@ -1,4 +1,3 @@
-from datetime import datetime
 import argparse
 import glob
 import itertools
@@ -6,6 +5,7 @@ import logging
 import os.path
 import sys
 import time
+from datetime import datetime
 
 import torch
 
@@ -26,7 +26,7 @@ args = parser.parse_args()
 
 
 def _fmt_percent(p):
-  return "{0:.1%}".format(p)
+  return f"{p:.1%}"
 
 
 def net_directory():
@@ -83,7 +83,9 @@ def run_exhib_match(net, cls):
 
 if __name__ == "__main__":
   if args.profile:
-    import cProfile, pstats, io
+    import cProfile
+    import io
+    import pstats
     pr = cProfile.Profile()
     pr.enable()
 
@@ -104,7 +106,7 @@ if __name__ == "__main__":
     gen = checkpoint['game_count']
     print(f"Loaded checkpoint file with {checkpoint['game_count']} games from {checkpoint['time']}")
   else:
-    print(f"Training net from scratch...")
+    print("Training net from scratch...")
     net = Net()
     gen = 0
 

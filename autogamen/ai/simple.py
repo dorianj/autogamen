@@ -1,5 +1,5 @@
-from collections import defaultdict
 import random
+from collections import defaultdict
 
 from autogamen.game.player import Player
 from autogamen.game.types import TurnAction

@@ -1,9 +1,7 @@
 import logging
-import random
-import time
 
-from .types import Color, Point, TurnAction, Dice
 from .board import Board
+from .types import Color, Dice, Point, TurnAction
 
 
 class Game:
@@ -109,7 +107,7 @@ class Game:
 
       [self.board.apply_move(move) for move in move]
     elif turn_action is TurnAction.DoublingCube:
-      logging.debug(f"\tOffers the doubling cube")
+      logging.debug("\tOffers the doubling cube")
       raise Exception("Doubling cube is unimplemented")
     elif turn_action is TurnAction.Pass:
       if len(possible_moves):

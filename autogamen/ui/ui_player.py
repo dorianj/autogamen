@@ -1,9 +1,8 @@
-from collections import defaultdict
-import random
 import time
 
 from autogamen.game.player import Player
 from autogamen.game.types import Move, TurnAction
+
 from .types import Coord
 
 

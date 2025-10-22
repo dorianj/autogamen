@@ -1,6 +1,3 @@
-from collections import Counter
-from datetime import datetime
-from multiprocessing import Pool
 import argparse
 import itertools
 import logging
@@ -9,6 +6,9 @@ import os.path
 import pickle
 import random
 import sys
+from collections import Counter
+from datetime import datetime
+from multiprocessing import Pool
 
 from autogamen.ai.mlp import MLPPlayer, Net
 from autogamen.game.match import Match
@@ -25,7 +25,7 @@ parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)"
 args = parser.parse_args()
 
 def _fmt_percent(p):
-  return "{0:.1%}".format(p)
+  return f"{p:.1%}"
 
 def fitness_for_match(match):
   points = match.points[match.winner.color]

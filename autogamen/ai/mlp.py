@@ -1,10 +1,8 @@
 from collections import defaultdict
-import random
 
 import torch
 import torch.autograd
 import torch.nn as nn
-import torch.nn.functional as F
 
 from autogamen.game.player import Player
 from autogamen.game.types import Color, TurnAction

@@ -1,12 +1,11 @@
 import argparse
 import logging
 
-from autogamen.ai.mlp import MLPPlayer
-from autogamen.ai.simple import BozoPlayer, DeltaPlayer
-from autogamen.ui.ui_player import HumanPlayer
+from autogamen.ai.simple import DeltaPlayer
 from autogamen.game.match import Match
 from autogamen.game.types import Color
 from autogamen.ui.match_view import MatchView
+from autogamen.ui.ui_player import HumanPlayer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("opponent", default="Bozo", help="Class name of opponent")

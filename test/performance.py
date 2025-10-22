@@ -1,8 +1,9 @@
-from contextlib import contextmanager
 import cProfile
-import pstats
 import io
+import pstats
 import time
+from contextlib import contextmanager
+
 
 @contextmanager
 def assertRuntime(self, expected_time):

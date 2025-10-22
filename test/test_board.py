@@ -1,11 +1,10 @@
 import unittest
-import itertools
 
 from autogamen.game.board import Board, FrozenBoard
 from autogamen.game.types import Color, Dice, Move, Point
-from autogamen.ui.match_view import display_board
 
 from .performance import assertRuntime
+
 
 def repeat_point(repeat_count, pips=0, color=None):
   if type(pips) is not int or (color is not None and type(color) is not Color):

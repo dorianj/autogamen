@@ -1,7 +1,8 @@
 from math import floor
 
-from .types import Area, Coord, Rect
 from autogamen.game.types import Color
+
+from .types import Area, Coord, Rect
 
 
 def choose_color(white, white_color="#ffffff", black_color="#000000"):
@@ -107,7 +108,7 @@ class GameView:
       :direction: int, 1 for up-to-down, -1 for down-to-up
       :area: Area, bounding box. Coord is top left for downwards, bottom left for upwards
     """
-    if count is 0:
+    if count == 0:
       return
 
     natural_height = self.pip_size * count

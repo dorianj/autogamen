@@ -1,7 +1,7 @@
-from collections import Counter, defaultdict
-import itertools
+from collections import Counter
 
 from .types import Color, FrozenPoint, Move
+
 
 class _Board:
   def __init__(self, points, bar=None, off=None):

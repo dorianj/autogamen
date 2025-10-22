@@ -1,12 +1,10 @@
-from multiprocessing import Pool
-from collections import Counter
 import argparse
 import logging
 import random
 import sys
+from collections import Counter
+from multiprocessing import Pool
 
-from autogamen.ai.simple import BozoPlayer, DeltaPlayer, RunningPlayer
-from autogamen.ai.mlp import MLPPlayer
 from autogamen.game.match import Match
 from autogamen.game.types import Color
 
@@ -21,7 +19,7 @@ parser.add_argument("--verbosity", help="Logging verbosity (debug/info/warning)"
 args = parser.parse_args()
 
 def _fmt_percent(p):
-  return "{0:.1%}".format(p)
+  return f"{p:.1%}"
 
 def run_match_args(a):
   numeric_level = getattr(logging, args.verbosity.upper(), None)
