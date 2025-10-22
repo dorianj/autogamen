@@ -3,6 +3,7 @@ __pycache__/
 support/
 settings.local.json
 out/
+.hypothesis/
 
 # gnubg build artifacts
 vendor/gnubg/.deps/

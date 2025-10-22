@@ -4,7 +4,7 @@ dev-install:
 
 test:
 	@echo "→ running tests"
-	@uv run python -m unittest test.test_board
+	@uv run python -m unittest test.test_board test.test_vector_game
 
 lint:
 	@echo "→ running ruff check"

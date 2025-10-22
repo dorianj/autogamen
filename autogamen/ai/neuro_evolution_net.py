@@ -10,7 +10,6 @@ from autogamen.game.game_types import Color, TurnAction
 
 if TYPE_CHECKING:
     from autogamen.game.board import _Board
-    from autogamen.game.game import Game
 
 
 class NENet(nn.Module):
@@ -79,7 +78,7 @@ class NENet(nn.Module):
         """gaussian mutation of weights"""
         mutated = NENet()
         with torch.no_grad():
-            for orig_param, mut_param in zip(self.parameters(), mutated.parameters()):
+            for orig_param, mut_param in zip(self.parameters(), mutated.parameters(), strict=True):
                 noise = torch.randn_like(orig_param) * rate
                 mut_param.copy_(orig_param + noise)
         return mutated
@@ -89,7 +88,7 @@ class NENet(nn.Module):
         child = NENet()
         with torch.no_grad():
             for child_param, p1_param, p2_param in zip(
-                child.parameters(), self.parameters(), other.parameters()
+                child.parameters(), self.parameters(), other.parameters(), strict=True
             ):
                 mask = torch.rand_like(p1_param) > 0.5
                 child_param.copy_(torch.where(mask, p1_param, p2_param))
