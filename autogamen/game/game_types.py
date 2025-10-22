@@ -117,8 +117,10 @@ class Move:
     self.distance = distance
     self.color = color
 
-    self.destination_is_off = self._destination_is_off()
-    self.destination_point_number: int | None = None if self.destination_is_off else self._destination_point_number()
+    # compute destination once: _destination_is_off calls _destination_point_number internally
+    dest = self._destination_point_number()
+    self.destination_is_off = dest > 24 or dest <= 0
+    self.destination_point_number: int | None = None if self.destination_is_off else dest
 
   def __str__(self) -> str:
     source = "bar" if self.point_number is Move.Bar else self.point_number
@@ -157,9 +159,6 @@ class Move:
       effective_start = self.point_number
 
     return effective_start + self.distance * direction
-
-  def _destination_is_off(self) -> bool:
-    return self._destination_point_number() > 24 or self._destination_point_number() <= 0
 
 
 class Dice:
