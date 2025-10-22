@@ -3,7 +3,6 @@ import functools
 import logging
 import sys
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import click
@@ -37,31 +36,6 @@ def cli() -> None:
     """
 
 
-@cli.command()
-@click.option(
-    "--annotations-dir",
-    type=click.Path(exists=True, path_type=Path),
-    default=Path("tmp/annotations"),
-    help="directory containing annotation data (default: tmp/annotations)",
-)
-@click.option(
-    "--promote",
-    is_flag=True,
-    help="promote trained model to models/ directory",
-)
-@with_log_level
-def train(annotations_dir: Path, promote: bool) -> None:
-    """train AI model on annotations.
-
-    trains a model to play backgammon based on training data.
-    saves checkpoint to tmp/train/ with timestamp in filename.
-
-    examples:
-      autogamen train                           # train and save to tmp/train/
-      autogamen train --promote                 # train and activate immediately
-    """
-    # TODO: Implement training logic
-    print("Training not yet implemented")
 
 
 @cli.command()
@@ -299,7 +273,7 @@ def ui(opponent: str, points: int) -> None:
     match_view.run()
 
 
-@cli.command(name="neuro-evolution")
+@cli.command(name="train-ne")
 @click.option(
     "--generations",
     help="Number of generations to run",
@@ -343,14 +317,14 @@ def neuro_evolution(
     evolves neural network players through genetic algorithms.
 
     examples:
-      autogamen neuro-evolution                                    # default settings
-      autogamen neuro-evolution --generations 50 --population 20   # custom parameters
+      autogamen train-ne                                    # default settings
+      autogamen train-ne --generations 50 --population 20   # custom parameters
     """
     from autogamen.game.neuro_evolution import run_neuro_evolution
     run_neuro_evolution(generations, population, parallelism, mutation, crossover)
 
 
-@cli.command(name="reinforcement-learning")
+@cli.command(name="train-rl")
 @click.option(
     "--games",
     help="Number of games to play",
@@ -392,8 +366,8 @@ def reinforcement_learning(
     trains a neural network using temporal difference learning (TD-lambda).
 
     examples:
-      autogamen reinforcement-learning --games 10000              # 10k games
-      autogamen reinforcement-learning --exhibition               # with eval matches
+      autogamen train-rl --games 10000              # 10k games
+      autogamen train-rl --exhibition               # with eval matches
     """
     from autogamen.game.reinforcement_learning import run_reinforcement_learning
     run_reinforcement_learning(games, checkpoint, alpha, profile, exhibition)

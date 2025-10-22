@@ -3,7 +3,6 @@ import base64
 import cProfile
 import glob
 import io
-import itertools
 import os.path
 import pstats
 import time
