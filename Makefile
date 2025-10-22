@@ -1,3 +1,7 @@
+test:
+	@echo "→ running tests"
+	@uv run python -m unittest test.test_board
+
 lint:
 	@echo "→ running ruff check"
 	@uv run ruff check .
@@ -13,3 +17,5 @@ lint-fix:
 typecheck:
 	@echo "→ running mypy type check"
 	@uv run mypy autogamen/
+
+.PHONY: test lint lint-fix typecheck
