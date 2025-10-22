@@ -1,11 +1,14 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+import numpy as np
+import numpy.typing as npt
 import torch
 import torch.autograd
 import torch.nn as nn
 
 from autogamen.ai.players import Player
+from autogamen.game import vector_game as vg
 from autogamen.game.game_types import Color, TurnAction
 
 if TYPE_CHECKING:
@@ -71,6 +74,14 @@ class Net(nn.Module):
       raise Exception("vectorize_board is broken")
 
     return torch.FloatTensor(out)
+
+  def forward_batch(self, x: torch.Tensor) -> torch.Tensor:
+    """batched forward pass for multiple board states
+
+    x: shape (N, 198) - batch of board vectors
+    returns: shape (N, 1) - win probability predictions
+    """
+    return self.forward(x)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     result: torch.Tensor = self.layers(x)
@@ -167,3 +178,99 @@ class MLPPlayer(Player):
 
   def accept_doubling_cube(self) -> bool:
     return False
+
+
+class VectorMLPPlayer:
+  """vector-native MLP player for high-performance training.
+
+  operates directly on numpy vectors from vector_game, uses batched
+  neural net evaluation for speedup.
+  """
+  def __init__(self, color: Color, net: Net, learning: bool = False) -> None:
+    self.color = color
+    self.net = net
+    self.learning = learning
+    self.prev_vec: npt.NDArray[np.float32] | None = None
+    self.prev_p: torch.Tensor | None = None
+
+  def reset_eligibility_traces(self) -> None:
+    """called at start of each game"""
+    if self.learning:
+      self.net.reset_eligibility_traces()
+      self.prev_vec = None
+      self.prev_p = None
+
+  def p_batch(self, vecs: npt.NDArray[np.float32]) -> torch.Tensor:
+    """evaluate batch of board vectors.
+
+    vecs: shape (N, 198) numpy array
+    returns: shape (N, 1) tensor of win probabilities
+    """
+    batch = torch.from_numpy(vecs)
+    return self.net.forward_batch(batch)
+
+  def p_single(self, vec: npt.NDArray[np.float32]) -> torch.Tensor:
+    """evaluate single board vector.
+
+    vec: shape (198,) numpy array
+    returns: shape (1,) tensor
+    """
+    tensor = torch.from_numpy(vec).unsqueeze(0)  # shape: (1, 198)
+    result = self.net.forward(tensor)  # shape: (1, 1)
+    return result.squeeze(0)  # shape: (1,)
+
+  def win_probability(self, p: torch.Tensor) -> float:
+    """convert net output to win probability for this player"""
+    white_wins = p.item()
+    if self.color == Color.White:
+      return white_wins
+    else:
+      return 1 - white_wins
+
+  def choose_move(
+    self,
+    vec: npt.NDArray[np.float32],
+    color: Color,
+    dice: tuple[int, ...],
+  ) -> tuple[tuple, npt.NDArray[np.float32]]:
+    """choose best move using batched neural net evaluation.
+
+    returns: (best_move_tuple, resulting_board_vector)
+    """
+    possible_moves = vg.possible_moves(vec, color, dice)
+
+    if not possible_moves:
+      return ((), vec)
+
+    if self.learning:
+      self.prev_vec = vec.copy()
+      self.prev_p = self.p_single(vec)
+
+    # stack all result vectors for batch evaluation
+    result_vecs = np.stack([result_vec for _, result_vec in possible_moves])  # shape: (N, 198)
+
+    # single batched forward pass
+    scores = self.p_batch(result_vecs)  # shape: (N, 1)
+
+    # find best move for this player
+    win_probs = torch.tensor([self.win_probability(scores[i]) for i in range(len(scores))])
+    best_idx = int(win_probs.argmax().item())
+
+    best_move, best_vec = possible_moves[best_idx]
+    best_p = scores[best_idx]
+
+    # TD-learning weight update
+    if self.learning:
+      winner = vg.winner(best_vec)
+
+      if winner is not None:
+        # terminal state: reward is 1 for white win, 0 for black win
+        reward = torch.tensor([1.0 if winner == Color.White else 0.0])
+      else:
+        # non-terminal: use next predicted value (detached)
+        reward = best_p.detach()
+
+      assert self.prev_p is not None
+      self.net.update_weights(self.prev_p, reward)
+
+    return best_move, best_vec

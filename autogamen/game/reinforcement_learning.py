@@ -14,10 +14,11 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import torch
 
-from autogamen.ai.mlp import MLPPlayer, Net
+from autogamen.ai.mlp import MLPPlayer, Net, VectorMLPPlayer
 from autogamen.ai.players import BozoPlayer, DeltaPlayer
-from autogamen.game.game import Game
-from autogamen.game.game_types import Color
+from autogamen.game import vector_game as vg
+from autogamen.game.board import Board
+from autogamen.game.game_types import Color, Dice, Point
 from autogamen.game.match import Match
 
 
@@ -54,6 +55,36 @@ def load_checkpoint(path: str) -> tuple["Net", dict]:
     return n, checkpoint
 
 
+def _setup_board() -> Board:
+    """create standard backgammon starting position"""
+    return Board([
+        Point(2, Color.White),
+        Point(),
+        Point(),
+        Point(),
+        Point(),
+        Point(5, Color.Black),
+        Point(),
+        Point(3, Color.Black),
+        Point(),
+        Point(),
+        Point(),
+        Point(5, Color.White),
+        Point(5, Color.Black),
+        Point(),
+        Point(),
+        Point(),
+        Point(3, Color.White),
+        Point(),
+        Point(5, Color.White),
+        Point(),
+        Point(),
+        Point(),
+        Point(),
+        Point(2, Color.Black),
+    ])
+
+
 class GameMetrics:
     """Metrics collected during a single game"""
     def __init__(self) -> None:
@@ -64,13 +95,14 @@ class GameMetrics:
         return sum(abs(e.item()) for e in self.td_errors) / len(self.td_errors) if self.td_errors else 0.0
 
 
-def run_game(white: "MLPPlayer", black: "MLPPlayer", net: "Net") -> GameMetrics:
-    """Run a single training game and return metrics"""
-    metrics = GameMetrics()
-    game = Game([white, black])
-    game.start()
+def run_game(white: "VectorMLPPlayer", black: "VectorMLPPlayer", net: "Net") -> GameMetrics:
+    """run a single training game using vector_game operations.
 
-    # Store original update_weights to intercept TD errors
+    both players share the same net and use batched evaluation.
+    """
+    metrics = GameMetrics()
+
+    # intercept TD errors for metrics
     original_update = net.update_weights
     def wrapped_update(p: torch.Tensor, p_next: torch.Tensor) -> torch.Tensor:
         td_error = original_update(p, p_next)
@@ -79,16 +111,43 @@ def run_game(white: "MLPPlayer", black: "MLPPlayer", net: "Net") -> GameMetrics:
 
     net.update_weights = wrapped_update  # type: ignore[method-assign]
 
-    turn_number = 0
-    while True:
-        game.run_turn()
-        turn_number += 1
-        metrics.turn_count = turn_number
-        if game.winner is not None:
-            break  # type: ignore[unreachable]
+    # reset eligibility traces at start of game
+    white.reset_eligibility_traces()
+    black.reset_eligibility_traces()
 
-    # Restore original method
-    net.update_weights = original_update  # type: ignore[unreachable]
+    # initialize board vector
+    vec = vg.from_board(_setup_board())
+
+    # determine starting player
+    starting_dice = Dice()
+    while starting_dice.roll[0] == starting_dice.roll[1]:
+        starting_dice = Dice()
+
+    active_color = Color.White if starting_dice.roll[0] > starting_dice.roll[1] else Color.Black
+    active_player = white if active_color == Color.White else black
+
+    turn_number = 0
+
+    while True:
+        # switch to next player
+        active_color = active_color.opponent()
+        active_player = white if active_color == Color.White else black
+
+        # roll dice
+        dice = Dice()
+        turn_number += 1
+
+        # player chooses and applies best move
+        _, vec = active_player.choose_move(vec, active_color, dice.effective_roll())
+
+        # check for winner
+        winner = vg.winner(vec)
+        if winner is not None:
+            metrics.turn_count = turn_number
+            break
+
+    # restore original method
+    net.update_weights = original_update  # type: ignore[method-assign]
     return metrics
 
 
@@ -357,7 +416,7 @@ def run_reinforcement_learning(
     metrics = TrainingMetrics()
     start_time = time.perf_counter()
 
-    white, black = MLPPlayer(Color.White, net, True), MLPPlayer(Color.Black, net, True)
+    white, black = VectorMLPPlayer(Color.White, net, True), VectorMLPPlayer(Color.Black, net, True)
 
     for i in range(1, games + 1):
         # Run training game
