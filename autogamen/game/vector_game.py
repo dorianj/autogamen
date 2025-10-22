@@ -261,7 +261,16 @@ def possible_moves(vec: npt.NDArray[np.float32], color: Color, dice: tuple[int, 
 
                 move = Move(color, point_num, die)
 
-                if move_is_valid(current_vec, move):
+                # lightweight validation: only check destination (source already validated above)
+                valid = True
+                if move.destination_is_off:
+                    valid = can_bear_off(current_vec, color)
+                else:
+                    assert move.destination_point_number is not None
+                    dest_color, dest_count = _get_point_color_count(current_vec, move.destination_point_number)
+                    valid = dest_color is None or (dest_color != color and dest_count == 1) or dest_color == color
+
+                if valid:
                     new_vec = apply_move(current_vec, move)
                     moves.append(((move,), new_vec))
 
