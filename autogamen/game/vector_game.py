@@ -237,9 +237,26 @@ def possible_moves(vec: npt.NDArray[np.float32], color: Color, dice: tuple[int, 
     def _worker(current_vec: npt.NDArray[np.float32], remaining_dice: tuple[int, ...]) -> list[tuple[tuple[Move, ...], npt.NDArray[np.float32]]]:
         moves: list[tuple[tuple[Move, ...], npt.NDArray[np.float32]]] = []
 
+        bar_idx = BAR_WHITE_IDX if color == Color.White else BAR_BLACK_IDX
+        on_bar = current_vec[bar_idx] > 0.5
+
         for d_idx, die in enumerate(set(remaining_dice)):
             # try all possible sources: bar (0) and points (1-24)
             for point_num in range(0, 25):
+                # early rejection: skip moves from board points if we're on bar
+                if on_bar and point_num != Move.Bar:
+                    continue
+
+                # early rejection: skip bar moves if not on bar
+                if not on_bar and point_num == Move.Bar:
+                    continue
+
+                # early rejection: skip points without our checkers
+                if point_num > 0:  # not bar
+                    source_color, source_count = _get_point_color_count(current_vec, point_num)
+                    if source_color != color or source_count == 0:
+                        continue
+
                 move = Move(color, point_num, die)
 
                 if move_is_valid(current_vec, move):
