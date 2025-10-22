@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import torch
 import torch.autograd
@@ -7,13 +8,17 @@ import torch.nn as nn
 from autogamen.game.game_types import Color, TurnAction
 from autogamen.game.player import Player
 
+if TYPE_CHECKING:
+    from autogamen.game.board import _Board
+    from autogamen.game.game import Game
+
 
 class Net(nn.Module):
   input_neurons = 198
   hidden_neurons = 50
   learning_rate = 0.1
 
-  def __init__(self):
+  def __init__(self) -> None:
     super().__init__()
     self.layers = nn.Sequential(
       nn.Linear(self.input_neurons, self.hidden_neurons),
@@ -32,7 +37,7 @@ class Net(nn.Module):
     for param in self.parameters():
       nn.init.zeros_(param)
 
-  def vectorize_board(self, board, active_color):
+  def vectorize_board(self, board: "_Board", active_color: Color) -> torch.Tensor:
     out = []
     for point in board.points:
       val = [
@@ -67,10 +72,16 @@ class Net(nn.Module):
 
     return torch.FloatTensor(out)
 
-  def forward(self, x):
-    return self.layers(x)
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    result: torch.Tensor = self.layers(x)
+    return result
 
-  def update_weights(self, p, p_next):
+  def reset_eligibility_traces(self) -> None:
+    """Reset eligibility traces to zero (called at start of each game)"""
+    for i in range(len(self.eligibility_traces)):
+      self.eligibility_traces[i].zero_()
+
+  def update_weights(self, p: torch.Tensor, p_next: torch.Tensor) -> torch.Tensor:
     self.zero_grad()
 
     p.backward()
@@ -81,7 +92,8 @@ class Net(nn.Module):
       params = list(self.parameters())
 
       for i, weights in enumerate(params):
-        self.eligibility_traces[i] = self.lambda_ * self.eligibility_traces[i] + weights.grad
+        grad = weights.grad if weights.grad is not None else torch.zeros_like(weights)
+        self.eligibility_traces[i] = self.lambda_ * self.eligibility_traces[i] + grad
 
         # w <- w + alpha * td_error * z
         new_weights = weights + self.learning_rate * td_error * self.eligibility_traces[i]
@@ -93,26 +105,35 @@ class Net(nn.Module):
 class MLPPlayer(Player):
   """Picks the best move in the universe every time.
   """
-  def __init__(self, color, net, learning=False):
+  def __init__(self, color: Color, net: Net, learning: bool = False) -> None:
     super().__init__(color)
     self.net = net
     self.learning = learning
 
-  def p(self, board):
-    return self.net(self.net.vectorize_board(board, self.color))
+  def start_game(self, game: "Game") -> None:
+    super().start_game(game)
+    if self.learning:
+      self.net.reset_eligibility_traces()
 
-  def win_probability(self, p):
+  def p(self, board: "_Board") -> torch.Tensor:
+    result: torch.Tensor = self.net(self.net.vectorize_board(board, self.color))
+    return result
+
+  def win_probability(self, p: torch.Tensor) -> float:
     [white_wins] = p
+    win_prob: float
     if self.color == Color.White:
-      return white_wins
+      win_prob = white_wins.item()
     else:
-      return 1 - white_wins
+      win_prob = 1 - white_wins.item()
+    return win_prob
 
-  def action(self, possible_moves):
+  def action(self, possible_moves: set[tuple[tuple, "_Board"]]) -> list:
     if not len(possible_moves):
       return [TurnAction.Pass]
 
     if self.learning:
+      assert self.game is not None
       p = self.p(self.game.board)
 
     # Dedupe moves into materialized boards: if multiple moves result in the same
@@ -133,15 +154,16 @@ class MLPPlayer(Player):
     )
 
     if self.learning:
-      reward = None
       if best_board.winner() is not None:
-        reward = 1 if self.color == Color.White else 0
+        # Terminal state: z = 1 for White win, 0 for Black win
+        reward = torch.tensor(1.0 if self.color == Color.White else 0.0)
       else:
-        reward = best_p
+        # Non-terminal state: next predicted value (detach to avoid backprop)
+        reward = best_p.detach()
 
       self.net.update_weights(p, reward)
 
     return [TurnAction.Move, best_move]
 
-  def accept_doubling_cube(self):
+  def accept_doubling_cube(self) -> bool:
     return False
