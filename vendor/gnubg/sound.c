@@ -177,6 +177,17 @@ static Float64 fileDuration = 0.0;
 			return; \
 		} \
 	}
+
+#define CoreAudioChkErrorDouble(func,context) \
+	{ \
+		int result; \
+		if ((result = func)!=0) \
+		{ \
+			outputf(_("Apple CoreAudio Error (" context "): %d\n"), result); \
+		        pthread_mutex_unlock (&mutexCAAccess); \
+			return 0.0; \
+		} \
+	}
 double CoreAudio_PrepareFileAU(AudioUnit * au, AudioStreamBasicDescription * fileFormat, AudioFileID audioFile);
 void CoreAudio_MakeSimpleGraph(AUGraph * theGraph, AudioUnit * fileAU,
                                AudioStreamBasicDescription * fileFormat, AudioFileID audioFile);
@@ -190,7 +201,7 @@ CoreAudio_ShutDown()
     AUGraphClose(theGraph);
 }
 
-void
+void *
 CoreAudio_PlayFile_Thread(void *auGraph)
 {
     /* Start playing the sound file, and wait for it to complete */
@@ -201,6 +212,7 @@ CoreAudio_PlayFile_Thread(void *auGraph)
 
     /* Shutdown the audio stream */
     pthread_mutex_unlock(&mutexCAAccess);
+    return NULL;
 }
 
 void
@@ -257,7 +269,7 @@ CoreAudio_PrepareFileAU(AudioUnit * au, AudioStreamBasicDescription * fileFormat
 {
     UInt64 nPackets;
     UInt32 propsize = sizeof(nPackets);
-    CoreAudioChkError(AudioFileGetProperty(audioFile, kAudioFilePropertyAudioDataPacketCount,
+    CoreAudioChkErrorDouble(AudioFileGetProperty(audioFile, kAudioFilePropertyAudioDataPacketCount,
                                            &propsize, &nPackets), "AudioFileGetProperty PacketCount");
 
     /* Get playing time in seconds */
@@ -275,12 +287,12 @@ CoreAudio_PrepareFileAU(AudioUnit * au, AudioStreamBasicDescription * fileFormat
     rgn.mStartFrame = 0;
     rgn.mFramesToPlay = (UInt32) (nPackets * fileFormat->mFramesPerPacket);
 
-    CoreAudioChkError(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduledFileRegion,
+    CoreAudioChkErrorDouble(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduledFileRegion,
                                            kAudioUnitScope_Global, 0, &rgn, sizeof(rgn)),
                       "kAudioUnitProperty_ScheduledFileRegion");
 
     UInt32 defaultVal = 0;
-    CoreAudioChkError(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduledFilePrime,
+    CoreAudioChkErrorDouble(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduledFilePrime,
                                            kAudioUnitScope_Global, 0, &defaultVal, sizeof(defaultVal)),
                       "kAudioUnitProperty_ScheduledFilePrime");
 
@@ -290,7 +302,7 @@ CoreAudio_PrepareFileAU(AudioUnit * au, AudioStreamBasicDescription * fileFormat
     memset(&startTime, 0, sizeof(startTime));
     startTime.mFlags = kAudioTimeStampSampleTimeValid;
     startTime.mSampleTime = -1;
-    CoreAudioChkError(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduleStartTimeStamp,
+    CoreAudioChkErrorDouble(AudioUnitSetProperty(*au, kAudioUnitProperty_ScheduleStartTimeStamp,
                                            kAudioUnitScope_Global, 0, &startTime, sizeof(startTime)),
                       "AudioUnitSetproperty StartTime");
 

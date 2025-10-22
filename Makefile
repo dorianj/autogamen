@@ -1,3 +1,7 @@
+dev-install:
+	@echo "→ installing development dependencies via homebrew"
+	@brew install automake autoconf libtool gettext
+
 test:
 	@echo "→ running tests"
 	@uv run python -m unittest test.test_board
@@ -43,4 +47,4 @@ gnubg-distclean:
 	@if [ -f vendor/gnubg/Makefile ]; then $(MAKE) -C vendor/gnubg distclean; fi
 	@rm -f vendor/gnubg/configure vendor/gnubg/config.h.in
 
-.PHONY: test lint lint-fix typecheck gnubg gnubg-clean gnubg-distclean
+.PHONY: dev-install test lint lint-fix typecheck gnubg gnubg-clean gnubg-distclean

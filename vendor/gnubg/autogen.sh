@@ -2,6 +2,7 @@
 
 set -x
 
+rm -rf autom4te.cache
 rm -f aclocal.m4
 aclocal -I m4
 
