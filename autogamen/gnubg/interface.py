@@ -28,7 +28,7 @@ class GnubgMove:
 class GnubgInterface:
     """manages communication with gnubg subprocess."""
 
-    def __init__(self, gnubg_path: str | None = None, data_dir: str | None = None):
+    def __init__(self, gnubg_path: str | None = None, data_dir: str | None = None, plies: int = 2):
         # locate gnubg binary and data directory
         if gnubg_path is None:
             repo_root = Path(__file__).parent.parent.parent
@@ -43,6 +43,7 @@ class GnubgInterface:
 
         self.gnubg_path = gnubg_path
         self.data_dir = data_dir
+        self.plies = plies
         self.process: subprocess.Popen[bytes] | None = None
 
     def start(self) -> None:
@@ -69,14 +70,25 @@ class GnubgInterface:
         # consume the startup banner
         self._read_until_prompt()
 
+        # configure evaluation strength
+        self._send_command(f"set evaluation chequerplay evaluation plies {self.plies}")
+        self._read_until_prompt()
+        self._send_command(f"set evaluation cubedecision evaluation plies {self.plies}")
+        self._read_until_prompt()
+
     def stop(self) -> None:
         """stop the gnubg subprocess."""
         if self.process is None:
             return
 
-        self._send_command("quit")
-        self.process.wait(timeout=5)
-        self.process = None
+        try:
+            self._send_command("quit")
+            self.process.wait(timeout=5)
+        except Exception:
+            # force kill if quit doesn't work
+            self.process.kill()
+        finally:
+            self.process = None
 
     def _send_command(self, command: str) -> None:
         """send a command to gnubg."""
@@ -97,7 +109,7 @@ class GnubgInterface:
             raise RuntimeError("gnubg not started")
 
         output_lines = []
-        timeout = 0.5  # wait up to 500ms for more output
+        timeout = 0.1  # wait up to 100ms for more output
 
         while True:
             # use select to check if data is available

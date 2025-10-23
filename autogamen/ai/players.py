@@ -92,11 +92,11 @@ class GnubgPlayer(Player):
 
   gnubg: "GnubgInterface"
 
-  def __init__(self, color: Color) -> None:
+  def __init__(self, color: Color, plies: int = 2) -> None:
     super().__init__(color)
     # local import prevents circular dependency
     from autogamen.gnubg.interface import GnubgInterface  # noqa: PLC0415
-    self.gnubg = GnubgInterface()
+    self.gnubg = GnubgInterface(plies=plies)
     self.gnubg.start()
 
   def action(self, possible_moves: set[tuple[tuple[Any, ...], Any]]) -> list[Any]:
