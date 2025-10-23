@@ -54,4 +54,7 @@ class Match:
     if self.points[winner.color] >= self.point_goal:
       self.winner = winner
 
+    # reset for next game
+    self.current_game = None
+
     return True
