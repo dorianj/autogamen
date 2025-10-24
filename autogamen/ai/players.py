@@ -139,35 +139,56 @@ class GnubgPlayer(Player):
       # if parsing fails, fall back to random
       return [TurnAction.Move, random.choice(sorted(possible_moves))[0]]
 
+  def _gnubg_to_our_point(self, gnubg_point: int) -> int:
+    """convert gnubg's point numbering to our internal point numbering.
+
+    gnubg uses player-relative numbering:
+    - for white: gnubg point 24 = our point 1, gnubg point 1 = our point 24
+    - for black: gnubg point 24 = our point 24, gnubg point 1 = our point 1
+
+    so for white, we need to flip: our_point = 25 - gnubg_point
+    for black, it's the same: our_point = gnubg_point
+    """
+    if self.color == Color.White:
+      return 25 - gnubg_point
+    else:
+      return gnubg_point
+
   def _parse_gnubg_move_string(self, move_str: str) -> tuple[Move, ...]:
-    """convert gnubg move notation like "24/18 13/11" to our Move objects."""
+    """convert gnubg move notation like "24/18 13/11" to our Move objects.
+
+    gnubg uses player-relative notation where point 24 is always the starting position
+    and point 1 is near the bear-off area, regardless of player color.
+    """
     move_parts = move_str.split()
     moves = []
 
     for part in move_parts:
       match = re.match(r'(\d+|bar)/(\d+|off)', part.lower())
       if match:
-        source = match.group(1)
-        dest = match.group(2)
+        source_str = match.group(1)
+        dest_str = match.group(2)
 
-        if source == "bar":
-          point_number = Move.Bar
+        if source_str == "bar":
+          our_source = Move.Bar
         else:
-          point_number = int(source)
+          gnubg_source = int(source_str)
+          our_source = self._gnubg_to_our_point(gnubg_source)
 
-        if dest == "off":
-          # bearing off - need to calculate distance
-          # for white (moving from high to low), bearing off from point N means distance = N
-          # for black (moving from low to high), bearing off from point N means distance = 25 - N
+        if dest_str == "off":
+          # bearing off
+          if our_source == Move.Bar:
+            raise ValueError("cannot bear off from bar")
           if self.color == Color.White:
-            distance = point_number if point_number != Move.Bar else 0
+            distance = our_source
           else:
-            distance = 25 - point_number if point_number != Move.Bar else 0
+            distance = 25 - our_source
         else:
-          dest_num = int(dest)
-          distance = abs(point_number - dest_num)
+          gnubg_dest = int(dest_str)
+          our_dest = self._gnubg_to_our_point(gnubg_dest)
+          distance = abs(our_source - our_dest)
 
-        moves.append(Move(self.color, point_number, distance))
+        moves.append(Move(self.color, our_source, distance))
 
     return tuple(moves)
 

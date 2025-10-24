@@ -135,19 +135,28 @@ class GnubgInterface:
         - negative numbers = O (opponent)
         - format: "simple <point1> <point2> ... <point24> <bar_count>"
 
-        gnubg's X is always the player on roll, so we flip signs based on which color is moving
+        gnubg uses player-relative point numbering:
+        - for white: gnubg point 1 = our point 24, gnubg point 24 = our point 1
+        - for black: gnubg point 1 = our point 1, gnubg point 24 = our point 24
         """
+        from autogamen.game.game_types import Color  # noqa: PLC0415
+
         # build the 24-element array for gnubg
         gnubg_points = []
 
-        for point_num in range(1, 25):
-            point = board.point_at_number(point_num)
+        for gnubg_point_num in range(1, 25):
+            # convert gnubg point number to our point number
+            if player_color == Color.White:
+                our_point_num = 25 - gnubg_point_num
+            else:
+                our_point_num = gnubg_point_num
+
+            point = board.point_at_number(our_point_num)
 
             if point.is_empty():
                 gnubg_points.append(0)
             else:
                 # in gnubg, X (positive) is the player on roll
-                # if our player_color matches this point's color, it's positive
                 sign = 1 if point.color == player_color else -1
                 gnubg_points.append(sign * point.count)
 
