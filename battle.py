@@ -30,6 +30,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="run battles between RL-trained net and gnubg")
     parser.add_argument("-n", "--num-matches", type=int, default=1, help="number of matches to play")
     parser.add_argument("-p", "--points", type=int, default=7, help="match length in points")
+    parser.add_argument("--plies", type=int, default=7, help="gnubg evaluation plies (default: 7 = world class)")
     args = parser.parse_args()
     # find latest checkpoint
     checkpoint_paths = sorted(glob.glob(os.path.join(net_directory(), "*.torch")))
@@ -46,11 +47,11 @@ def main() -> None:
     # set up players
     print("\n⏵ setting up players...")
     mlp = MLPPlayer(Color.White, net, learning=False)
-    gnubg = GnubgPlayer(Color.Black, plies=4)
+    gnubg = GnubgPlayer(Color.Black, plies=args.plies)
 
     print(f"\n§ running {args.num_matches} match{'es' if args.num_matches > 1 else ''} ({args.points}-point)")
     print(f"  white: MLPPlayer (RL-trained, {checkpoint['game_count']:,} games)")
-    print("  black: GnubgPlayer (gnu backgammon 4-ply)")
+    print(f"  black: GnubgPlayer (gnu backgammon {args.plies}-ply)")
     print()
 
     # track results across matches
