@@ -70,7 +70,8 @@ class GnubgInterface:
         # consume the startup banner
         self._read_until_prompt()
 
-        # configure evaluation strength
+        # configure global evaluation strength
+        # this affects the hint command which is what we use
         self._send_command(f"set evaluation chequerplay evaluation plies {self.plies}")
         self._read_until_prompt()
         self._send_command(f"set evaluation cubedecision evaluation plies {self.plies}")
