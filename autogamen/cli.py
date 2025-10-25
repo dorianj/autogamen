@@ -332,10 +332,10 @@ def neuro_evolution(
     type=int,
 )
 @click.option(
-    "--checkpoint",
-    help="Save model after this many training games",
-    default=1000,
-    type=int,
+    "--tag",
+    help="Tag for this training run (defaults to timestamp_githash)",
+    default=None,
+    type=str,
 )
 @click.option(
     "--alpha",
@@ -356,7 +356,7 @@ def neuro_evolution(
 @with_log_level
 def reinforcement_learning(
     games: int,
-    checkpoint: int,
+    tag: str | None,
     alpha: float,
     profile: bool,
     exhibition: bool,
@@ -368,9 +368,10 @@ def reinforcement_learning(
     examples:
       autogamen train-rl --games 10000              # 10k games
       autogamen train-rl --exhibition               # with eval matches
+      autogamen train-rl --tag myexp                # custom tag
     """
     from autogamen.game.reinforcement_learning import run_reinforcement_learning
-    run_reinforcement_learning(games, checkpoint, alpha, profile, exhibition)
+    run_reinforcement_learning(games, tag, alpha, profile, exhibition)
 
 
 if __name__ == "__main__":

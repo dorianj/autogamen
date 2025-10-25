@@ -35,7 +35,7 @@ def main() -> None:
     # find latest checkpoint
     checkpoint_paths = sorted(glob.glob(os.path.join(net_directory(), "*.torch")))
     if not checkpoint_paths:
-        raise RuntimeError("no checkpoints found in out/models/")
+        raise RuntimeError("no checkpoints found in out/train/")
 
     latest = checkpoint_paths[-1]
     print(f"loading checkpoint: {os.path.basename(latest)}")

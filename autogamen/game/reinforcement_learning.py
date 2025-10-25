@@ -27,14 +27,51 @@ def _fmt_percent(p: float) -> str:
     return f"{p:.1%}"
 
 
-def net_directory() -> str:
-    """Get the directory for storing network files"""
-    return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'models')
+def get_checkpoint_schedule(max_games: int) -> list[int]:
+    """generate checkpoint schedule: 1k, 2k, 4k, 10k, 20k, 50k, 100k, 150k, 200k, ..."""
+    schedule = []
+    # pattern: 1, 2, 5 (within each magnitude), then step up
+    for magnitude in [1_000, 10_000, 100_000, 1_000_000]:
+        for multiplier in [1, 2, 5]:
+            checkpoint = magnitude * multiplier
+            if checkpoint <= max_games:
+                schedule.append(checkpoint)
+            else:
+                return schedule
+    return schedule
 
 
-def train_directory() -> str:
-    """Get the directory for storing training reports"""
-    return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'train')
+def find_latest_training_run() -> str | None:
+    """scan out/train/ and return the latest tag (alphabetically sorted) that has checkpoints"""
+    train_base = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'train')
+    if not os.path.exists(train_base):
+        return None
+
+    # get all subdirectories
+    tags = [d for d in os.listdir(train_base) if os.path.isdir(os.path.join(train_base, d))]
+    if not tags:
+        return None
+
+    # sort alphabetically (timestamps will sort correctly)
+    tags.sort()
+
+    # return the latest tag that has at least one .torch file
+    for tag in reversed(tags):
+        tag_dir = os.path.join(train_base, tag)
+        if glob.glob(os.path.join(tag_dir, "*.torch")):
+            return tag
+
+    return None
+
+
+def net_directory(tag: str) -> str:
+    """Get the directory for storing network files for a specific training run"""
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'train', tag)
+
+
+def train_directory(tag: str) -> str:
+    """Get the directory for storing training reports for a specific training run"""
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'train', tag)
 
 
 def write_checkpoint(path: str, net: "Net", game_count: int) -> None:
@@ -182,7 +219,7 @@ class TrainingMetrics:
         self.timestamps: list[float] = []  # Time elapsed for each game
 
 
-def generate_html_report(timestamp: str, metrics: TrainingMetrics, games: int) -> str:
+def generate_html_report(tag: str, metrics: TrainingMetrics, games: int) -> str:
     """Generate HTML report with matplotlib charts (black background).
 
     Returns the path to the generated report.
@@ -270,7 +307,7 @@ def generate_html_report(timestamp: str, metrics: TrainingMetrics, games: int) -
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>TD-GAMMON Training Report - {timestamp}</title>
+    <title>TD-GAMMON Training Report - {tag}</title>
     <style>
         body {{
             background-color: #000000;
@@ -328,7 +365,7 @@ def generate_html_report(timestamp: str, metrics: TrainingMetrics, games: int) -
 <body>
     <div class="header">
         <h1>TD-GAMMON Training Report</h1>
-        <div class="timestamp">Run: {timestamp}</div>
+        <div class="timestamp">Run: {tag}</div>
     </div>
 
     <div class="stats">
@@ -365,8 +402,8 @@ def generate_html_report(timestamp: str, metrics: TrainingMetrics, games: int) -
 </html>
 """
 
-    # Write to file
-    report_path = os.path.join(train_directory(), f"{timestamp}_report.html")
+    # Write to file (overwrite previous report with latest data)
+    report_path = os.path.join(train_directory(tag), "report.html")
     with open(report_path, 'w') as f:
         f.write(html)
 
@@ -375,43 +412,66 @@ def generate_html_report(timestamp: str, metrics: TrainingMetrics, games: int) -
 
 def run_reinforcement_learning(
     games: int,
-    checkpoint_interval: int,
+    tag: str | None,
     alpha: float,
     profile: bool,
     exhibition: bool,
 ) -> tuple[str, TrainingMetrics, "Net"]:
     """Main entry point for reinforcement learning training.
 
-    Returns (timestamp, metrics, net) for report generation.
+    Returns (tag, metrics, net) for report generation.
     """
     if profile:
         pr = cProfile.Profile()
         pr.enable()
 
-    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    print(f"Running learning for {games} games, checkpointing every "
-          f"{checkpoint_interval} games to timestamp {run_timestamp}")
+    # determine tag: explicit, or auto-resume from latest, or create new
+    if tag is None:
+        latest_tag = find_latest_training_run()
+        if latest_tag:
+            tag = latest_tag
+            print(f"ℹ resuming from latest training run: {tag}")
+        else:
+            # create new tag: timestamp_githash
+            import subprocess
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            try:
+                git_hash = subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    stderr=subprocess.DEVNULL
+                ).decode().strip()
+                tag = f"{timestamp}_{git_hash}"
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                tag = timestamp
+            print(f"ℹ starting new training run: {tag}")
+    else:
+        print(f"ℹ using tag: {tag}")
 
-    # Ensure directories exist
-    net_dir = net_directory()
-    train_dir = train_directory()
-    os.makedirs(net_dir, exist_ok=True)
-    os.makedirs(train_dir, exist_ok=True)
+    # ensure directories exist
+    run_dir = net_directory(tag)
+    os.makedirs(run_dir, exist_ok=True)
 
-    # Try to find a checkpoint file to load
-    checkpoint_paths = sorted(glob.glob(os.path.join(net_dir, "*.torch")))
+    # generate checkpoint schedule
+    checkpoint_schedule = get_checkpoint_schedule(games)
+    print(f"⏱ training {games} games with checkpoints at: {checkpoint_schedule}")
+
+    # try to find a checkpoint file to load
+    checkpoint_paths = sorted(glob.glob(os.path.join(run_dir, "*.torch")))
     if len(checkpoint_paths):
-        net, checkpoint = load_checkpoint(checkpoint_paths[-1])
-        gen = checkpoint['game_count']
+        latest_checkpoint = checkpoint_paths[-1]
+        net, checkpoint = load_checkpoint(latest_checkpoint)
+        starting_game = checkpoint['game_count']
+        print(f"✔ loaded checkpoint from {os.path.basename(latest_checkpoint)} (game {starting_game})")
     else:
         net = Net()
-        gen = 0
+        starting_game = 0
+        print(f"✔ initialized new network")
 
-    # Set learning rate if provided
+    # set learning rate if provided
     if alpha:
         net.learning_rate = alpha
 
-    # Metrics tracking
+    # metrics tracking
     metrics = TrainingMetrics()
     start_time = time.perf_counter()
 
@@ -419,19 +479,19 @@ def run_reinforcement_learning(
 
     pbar = tqdm(range(1, games + 1), desc="training", unit="game")
     for i in pbar:
-        # Run training game
+        # run training game
         game_metrics = run_game(white, black, net)
 
-        # Record metrics
+        # record metrics
         metrics.game_lengths.append(game_metrics.turn_count)
         metrics.td_errors.append(game_metrics.avg_td_error())
         metrics.timestamps.append(time.perf_counter() - start_time)
 
-        # Calculate weight norm
+        # calculate weight norm
         weight_norm = sum(torch.norm(p).item() for p in net.parameters())
         metrics.weight_norms.append(weight_norm)
 
-        # Update progress bar with recent metrics
+        # update progress bar with recent metrics
         if i >= 10:
             avg_len = sum(metrics.game_lengths[-10:]) / 10
             avg_td = sum(metrics.td_errors[-10:]) / 10
@@ -441,12 +501,13 @@ def run_reinforcement_learning(
                 'w': f'{weight_norm:.2f}'
             })
 
-        # Checkpointing
-        if i % checkpoint_interval == 0:
-            checkpoint_path = os.path.join(net_dir, f"net-{run_timestamp}-{i+gen:07d}.torch")
-            write_checkpoint(checkpoint_path, net, i + gen)
+        # checkpointing at scheduled intervals
+        current_total_games = starting_game + i
+        if current_total_games in checkpoint_schedule:
+            checkpoint_path = os.path.join(run_dir, f"net-{current_total_games:07d}.torch")
+            write_checkpoint(checkpoint_path, net, current_total_games)
 
-            # Exhibition matches for evaluation
+            # exhibition matches for evaluation
             if exhibition:
                 metrics.eval_games.append(i)
                 bozo_won, _, _ = run_exhib_match(net, BozoPlayer)
@@ -454,8 +515,11 @@ def run_reinforcement_learning(
                 metrics.bozo_wins.append(bozo_won)
                 metrics.delta_wins.append(delta_won)
 
+            # generate incremental report with full history
+            generate_html_report(tag, metrics, i)
+
     elapsed = time.perf_counter() - start_time
-    print(f"Finished! {elapsed:.1f}s total, {elapsed / games:.3f}s per game")
+    print(f"✔ finished! {elapsed:.1f}s total, {elapsed / games:.3f}s per game")
 
     if profile:
         pr.disable()
@@ -464,4 +528,4 @@ def run_reinforcement_learning(
         ps.print_stats(0.2)
         print(s.getvalue())
 
-    return run_timestamp, metrics, net
+    return tag, metrics, net
