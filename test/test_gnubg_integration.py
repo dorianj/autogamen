@@ -62,46 +62,62 @@ class TestGnubgBoardConversion(unittest.TestCase):
         gnubg_str = self.gnubg._board_to_gnubg_simple(self.board, Color.White)
         parts = gnubg_str.split()
 
+        # format: simple [bar_player] [24 points] [bar_opponent]
+        # parts[0] = "simple"
+        # parts[1] = player bar count (should be 0)
+        self.assertEqual(parts[1], "0", "white bar count should be 0")
+
         # gnubg point 1 = our point 24 = 2 black checkers = -2
-        self.assertEqual(parts[1], "-2", "gnubg point 1 should be our point 24 (2 black)")
+        self.assertEqual(parts[2], "-2", "gnubg point 1 should be our point 24 (2 black)")
 
         # gnubg point 6 = our point 19 = 5 white checkers = +5
-        self.assertEqual(parts[6], "5", "gnubg point 6 should be our point 19 (5 white)")
+        self.assertEqual(parts[7], "5", "gnubg point 6 should be our point 19 (5 white)")
 
         # gnubg point 8 = our point 17 = 3 white checkers = +3
-        self.assertEqual(parts[8], "3", "gnubg point 8 should be our point 17 (3 white)")
+        self.assertEqual(parts[9], "3", "gnubg point 8 should be our point 17 (3 white)")
 
         # gnubg point 12 = our point 13 = 5 black checkers = -5
-        self.assertEqual(parts[12], "-5", "gnubg point 12 should be our point 13 (5 black)")
+        self.assertEqual(parts[13], "-5", "gnubg point 12 should be our point 13 (5 black)")
 
         # gnubg point 13 = our point 12 = 5 white checkers = +5
-        self.assertEqual(parts[13], "5", "gnubg point 13 should be our point 12 (5 white)")
+        self.assertEqual(parts[14], "5", "gnubg point 13 should be our point 12 (5 white)")
 
         # gnubg point 17 = our point 8 = 3 black checkers = -3
-        self.assertEqual(parts[17], "-3", "gnubg point 17 should be our point 8 (3 black)")
+        self.assertEqual(parts[18], "-3", "gnubg point 17 should be our point 8 (3 black)")
 
         # gnubg point 19 = our point 6 = 5 black checkers = -5
-        self.assertEqual(parts[19], "-5", "gnubg point 19 should be our point 6 (5 black)")
+        self.assertEqual(parts[20], "-5", "gnubg point 19 should be our point 6 (5 black)")
 
         # gnubg point 24 = our point 1 = 2 white checkers = +2
-        self.assertEqual(parts[24], "2", "gnubg point 24 should be our point 1 (2 white)")
+        self.assertEqual(parts[25], "2", "gnubg point 24 should be our point 1 (2 white)")
+
+        # parts[26] = opponent bar count (should be 0)
+        self.assertEqual(parts[26], "0", "black bar count should be 0")
 
     def test_black_board_conversion(self):
         """for black, gnubg point numbering is same as ours."""
         gnubg_str = self.gnubg._board_to_gnubg_simple(self.board, Color.Black)
         parts = gnubg_str.split()
 
+        # format: simple [bar_player] [24 points] [bar_opponent]
+        # parts[0] = "simple"
+        # parts[1] = player bar count (should be 0)
+        self.assertEqual(parts[1], "0", "black bar count should be 0")
+
         # gnubg point 1 = our point 1 = 2 white checkers = -2
-        self.assertEqual(parts[1], "-2", "gnubg point 1 should be our point 1 (2 white)")
+        self.assertEqual(parts[2], "-2", "gnubg point 1 should be our point 1 (2 white)")
 
         # gnubg point 6 = our point 6 = 5 black checkers = +5
-        self.assertEqual(parts[6], "5", "gnubg point 6 should be our point 6 (5 black)")
+        self.assertEqual(parts[7], "5", "gnubg point 6 should be our point 6 (5 black)")
 
         # gnubg point 8 = our point 8 = 3 black checkers = +3
-        self.assertEqual(parts[8], "3", "gnubg point 8 should be our point 8 (3 black)")
+        self.assertEqual(parts[9], "3", "gnubg point 8 should be our point 8 (3 black)")
 
         # gnubg point 24 = our point 24 = 2 black checkers = +2
-        self.assertEqual(parts[24], "2", "gnubg point 24 should be our point 24 (2 black)")
+        self.assertEqual(parts[25], "2", "gnubg point 24 should be our point 24 (2 black)")
+
+        # parts[26] = opponent bar count (should be 0)
+        self.assertEqual(parts[26], "0", "white bar count should be 0")
 
 
 class TestGnubgHints(unittest.TestCase):
@@ -151,7 +167,7 @@ class TestGnubgMoveNotationParsing(unittest.TestCase):
     def test_white_simple_move_parsing(self):
         """parse a simple move for white: 24/21"""
         # gnubg "24/21" for white = our point 1 moving distance 3
-        moves = self.white_player._parse_gnubg_move_string("24/21")
+        moves = self.white_player._parse_gnubg_move_string("24/21", (3, 1))
         self.assertEqual(len(moves), 1)
         self.assertEqual(moves[0].color, Color.White)
         self.assertEqual(moves[0].point_number, 1)
@@ -161,7 +177,7 @@ class TestGnubgMoveNotationParsing(unittest.TestCase):
         """parse compound move for white: 13/10 6/5"""
         # gnubg "13/10" = our point 12 moving distance 3
         # gnubg "6/5" = our point 19 moving distance 1
-        moves = self.white_player._parse_gnubg_move_string("13/10 6/5")
+        moves = self.white_player._parse_gnubg_move_string("13/10 6/5", (3, 1))
         self.assertEqual(len(moves), 2)
 
         # moves can be in either order
@@ -172,7 +188,7 @@ class TestGnubgMoveNotationParsing(unittest.TestCase):
     def test_black_simple_move_parsing(self):
         """parse a simple move for black: 1/4"""
         # for black, gnubg numbering matches ours
-        moves = self.black_player._parse_gnubg_move_string("1/4")
+        moves = self.black_player._parse_gnubg_move_string("1/4", (3, 1))
         self.assertEqual(len(moves), 1)
         self.assertEqual(moves[0].color, Color.Black)
         self.assertEqual(moves[0].point_number, 1)
@@ -180,7 +196,7 @@ class TestGnubgMoveNotationParsing(unittest.TestCase):
 
     def test_black_compound_move_parsing(self):
         """parse compound move for black: 13/10 6/5"""
-        moves = self.black_player._parse_gnubg_move_string("13/10 6/5")
+        moves = self.black_player._parse_gnubg_move_string("13/10 6/5", (3, 1))
         self.assertEqual(len(moves), 2)
 
         move_set = set(moves)
@@ -286,7 +302,7 @@ class TestGnubgMoveMatching(unittest.TestCase):
         self.assertGreater(len(hints), 0, "gnubg should return hints")
 
         # parse it to our format
-        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         # get our possible moves
         dice = Dice(roll=dice_roll)
@@ -306,7 +322,7 @@ class TestGnubgMoveMatching(unittest.TestCase):
         hints = self.gnubg.get_hint(board, Color.Black, dice_roll)
         self.assertGreater(len(hints), 0, "gnubg should return hints")
 
-        our_moves = self.black_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.black_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         dice = Dice(roll=dice_roll)
         possible = board.possible_moves(Color.Black, dice)
@@ -324,7 +340,7 @@ class TestGnubgMoveMatching(unittest.TestCase):
         hints = self.gnubg.get_hint(board, Color.White, dice_roll)
         self.assertGreater(len(hints), 0, "gnubg should return hints for doubles")
 
-        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         dice = Dice(roll=dice_roll)
         possible = board.possible_moves(Color.White, dice)
@@ -367,7 +383,7 @@ class TestGnubgMidGamePositions(unittest.TestCase):
         hints = self.gnubg.get_hint(board, Color.White, dice_roll)
         self.assertGreater(len(hints), 0, "gnubg should return hints for bearing off")
 
-        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         dice = Dice(roll=dice_roll)
         possible = board.possible_moves(Color.White, dice)
@@ -389,7 +405,7 @@ class TestGnubgMidGamePositions(unittest.TestCase):
         hints = self.gnubg.get_hint(board, Color.White, dice_roll)
         self.assertGreater(len(hints), 0, "gnubg should return hints with checker on bar")
 
-        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         dice = Dice(roll=dice_roll)
         possible = board.possible_moves(Color.White, dice)
@@ -426,7 +442,7 @@ class TestGnubgMidGamePositions(unittest.TestCase):
         hints = self.gnubg.get_hint(board, Color.White, dice_roll)
         self.assertGreater(len(hints), 0, "gnubg should return hints for racing")
 
-        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves, dice_roll)
 
         dice = Dice(roll=dice_roll)
         possible = board.possible_moves(Color.White, dice)
@@ -475,16 +491,17 @@ class TestGnubgBoardFormatBugs(unittest.TestCase):
         board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
         parts = board_str.split()
 
-        # the last two integers should be bar counts
-        # integer 25 (parts[-2]) should be player bar count = 1
-        # integer 26 (parts[-1]) should be opponent bar count = 0
+        # format: simple [bar_player] [24 points] [bar_opponent]
+        # parts[0] = "simple"
+        # parts[1] = player bar count = 1
+        # parts[26] = opponent bar count = 0
 
-        if len(parts) >= 3:
-            player_bar = int(parts[-2]) if len(parts) > 25 else None
-            opponent_bar = int(parts[-1]) if len(parts) > 25 else None
+        if len(parts) >= 27:
+            player_bar = int(parts[1])
+            opponent_bar = int(parts[26])
 
             self.assertEqual(player_bar, 1,
-                f"integer 25 should be player bar count (1), got {player_bar}")
+                f"integer 1 (after 'simple') should be player bar count (1), got {player_bar}")
             self.assertEqual(opponent_bar, 0,
                 f"integer 26 should be opponent bar count (0), got {opponent_bar}")
         else:
@@ -531,7 +548,7 @@ class TestGnubgBearingOffParsing(unittest.TestCase):
         # if rolling a 6, distance should be 6 (the die value)
         # NOT 19 (the point number)
 
-        moves = self.white_player._parse_gnubg_move_string("6/off")
+        moves = self.white_player._parse_gnubg_move_string("6/off", (6, 1))
 
         self.assertEqual(len(moves), 1, "should parse exactly one move")
         move = moves[0]
@@ -555,7 +572,7 @@ class TestGnubgBearingOffParsing(unittest.TestCase):
         # "5/2" = gnubg point 5 to 2 = our point 20 to 23 = distance 3
         # "5/off" = bearing off from gnubg point 5 = our point 20 with die 6
 
-        moves = self.white_player._parse_gnubg_move_string("5/2 5/off")
+        moves = self.white_player._parse_gnubg_move_string("5/2 5/off", (6, 3))
 
         self.assertEqual(len(moves), 2, "should parse exactly two moves")
 
@@ -590,7 +607,7 @@ class TestGnubgBearingOffParsing(unittest.TestCase):
         # for black, gnubg point 6 = our point 6
         # bearing off from point 6 needs distance >= 6
 
-        moves = self.black_player._parse_gnubg_move_string("6/off")
+        moves = self.black_player._parse_gnubg_move_string("6/off", (6, 1))
 
         self.assertEqual(len(moves), 1)
         move = moves[0]
@@ -622,7 +639,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
 
     def test_doubles_notation_with_count(self):
         """gnubg uses "24/18(2)" to mean do 24/18 twice."""
-        moves = self.white_player._parse_gnubg_move_string("24/18(2)")
+        moves = self.white_player._parse_gnubg_move_string("24/18(2)", (6, 6))
 
         # for doubles, we need to expand "(2)" into two separate moves
         # but the bug is that we ignore "(2)" and only create one move
@@ -632,7 +649,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
 
     def test_doubles_notation_multiple_parts(self):
         """complex doubles: "bar/19(2) 16/10(2)" means 4 total moves."""
-        moves = self.white_player._parse_gnubg_move_string("bar/19(2) 16/10(2)")
+        moves = self.white_player._parse_gnubg_move_string("bar/19(2) 16/10(2)", (6, 6))
 
         # "bar/19" twice + "16/10" twice = 4 moves total
         self.assertEqual(len(moves), 4,
@@ -651,7 +668,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
     def test_doubles_without_count_marker(self):
         """some doubles are written without (N): "13/7 13/7" instead of "13/7(2)"."""
         # gnubg sometimes writes doubles explicitly rather than with (2)
-        moves = self.white_player._parse_gnubg_move_string("13/7 13/7")
+        moves = self.white_player._parse_gnubg_move_string("13/7 13/7", (6, 6))
 
         self.assertEqual(len(moves), 2,
             "'13/7 13/7' should parse as 2 separate moves")
@@ -662,7 +679,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
 
     def test_mixed_doubles_notation(self):
         """mixed notation: "24/18(2) 18/16 18/16" = 4 moves."""
-        moves = self.white_player._parse_gnubg_move_string("24/18(2) 18/16 18/16")
+        moves = self.white_player._parse_gnubg_move_string("24/18(2) 18/16 18/16", (2, 2))
 
         self.assertEqual(len(moves), 4,
             f"should expand to 4 moves total, got {len(moves)}")
