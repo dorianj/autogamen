@@ -10,7 +10,7 @@ import unittest
 from autogamen.ai.players import BozoPlayer, GnubgPlayer
 from autogamen.game.board import Board
 from autogamen.game.game import Game
-from autogamen.game.game_types import Color, Move, Point
+from autogamen.game.game_types import Color, Dice, Move, Point
 from autogamen.gnubg.interface import GnubgInterface
 
 
@@ -254,6 +254,187 @@ class TestGnubgStrengthLevels(unittest.TestCase):
             self.assertGreater(len(hints), 0, f"gnubg with {plies} plies should return hints")
 
             gnubg.stop()
+
+
+class TestGnubgMoveMatching(unittest.TestCase):
+    """test that gnubg suggestions match our possible_moves output.
+
+    this is the critical integration test: if gnubg suggests moves that aren't
+    in our possible_moves set, the player falls back to random moves.
+    """
+
+    def setUp(self):
+        self.gnubg = GnubgInterface(plies=0)
+        self.gnubg.start()
+        self.white_player = GnubgPlayer(Color.White, plies=0)
+        self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
+        self.black_player = GnubgPlayer(Color.Black, plies=0)
+        self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
+
+    def tearDown(self):
+        self.gnubg.stop()
+        self.white_player.gnubg.stop()
+        self.black_player.gnubg.stop()
+
+    def test_white_opening_move_is_in_possible_moves(self):
+        """gnubg's top suggestion for white opening should be in our possible_moves."""
+        board = Board(standard_starting_points())
+        dice_roll = (3, 1)
+
+        # get gnubg's suggestion
+        hints = self.gnubg.get_hint(board, Color.White, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints")
+
+        # parse it to our format
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+
+        # get our possible moves
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.White, dice)
+
+        # verify gnubg's suggestion is in our set
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' (parsed as {our_moves}) "
+            f"but it's not in our {len(possible)} possible moves")
+
+    def test_black_opening_move_is_in_possible_moves(self):
+        """gnubg's top suggestion for black opening should be in our possible_moves."""
+        board = Board(standard_starting_points())
+        dice_roll = (4, 2)
+
+        hints = self.gnubg.get_hint(board, Color.Black, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints")
+
+        our_moves = self.black_player._parse_gnubg_move_string(hints[0].moves)
+
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.Black, dice)
+
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' (parsed as {our_moves}) "
+            f"but it's not in our {len(possible)} possible moves")
+
+    def test_doubles_move_is_in_possible_moves(self):
+        """gnubg suggestions for doubles should be in our possible_moves."""
+        board = Board(standard_starting_points())
+        dice_roll = (2, 2)
+
+        hints = self.gnubg.get_hint(board, Color.White, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints for doubles")
+
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.White, dice)
+
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' (parsed as {our_moves}) "
+            f"but it's not in our {len(possible)} possible moves for doubles")
+
+
+class TestGnubgMidGamePositions(unittest.TestCase):
+    """test gnubg integration with various mid-game positions."""
+
+    def setUp(self):
+        self.gnubg = GnubgInterface(plies=0)
+        self.gnubg.start()
+        self.white_player = GnubgPlayer(Color.White, plies=0)
+        self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
+
+    def tearDown(self):
+        self.gnubg.stop()
+        self.white_player.gnubg.stop()
+
+    def test_bearing_off_position(self):
+        """test gnubg suggestions for bearing off position."""
+        # white is bearing off: all checkers in home board
+        points = [Point() for _ in range(18)]
+        points.extend([
+            Point(4, Color.White),  # point 19
+            Point(3, Color.White),  # point 20
+            Point(4, Color.White),  # point 21
+            Point(2, Color.White),  # point 22
+            Point(2, Color.White),  # point 23
+            Point(),                 # point 24
+        ])
+
+        board = Board(points)
+        dice_roll = (6, 3)
+
+        hints = self.gnubg.get_hint(board, Color.White, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints for bearing off")
+
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.White, dice)
+
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' for bearing off "
+            f"but it's not in our possible moves")
+
+    def test_bar_position(self):
+        """test gnubg suggestions when player has checker on bar."""
+        # white has a checker on the bar
+        points = list(standard_starting_points())
+        points[0] = Point(1, Color.White)  # reduce point 1 by 1
+
+        board = Board(points, bar=[1, 0])  # white has 1 on bar
+        dice_roll = (5, 3)
+
+        hints = self.gnubg.get_hint(board, Color.White, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints with checker on bar")
+
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.White, dice)
+
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' for bar position "
+            f"but it's not in our possible moves")
+
+    def test_racing_position(self):
+        """test gnubg suggestions in a racing position (no contact)."""
+        # simplified racing position
+        points = [
+            Point(3, Color.White),   # point 1
+            Point(2, Color.White),   # point 2
+            Point(3, Color.White),   # point 3
+            Point(2, Color.White),   # point 4
+            Point(3, Color.White),   # point 5
+            Point(2, Color.White),   # point 6
+        ]
+        points.extend([Point() for _ in range(12)])
+        points.extend([
+            Point(2, Color.Black),   # point 19
+            Point(3, Color.Black),   # point 20
+            Point(2, Color.Black),   # point 21
+            Point(3, Color.Black),   # point 22
+            Point(2, Color.Black),   # point 23
+            Point(3, Color.Black),   # point 24
+        ])
+
+        board = Board(points)
+        dice_roll = (6, 4)
+
+        hints = self.gnubg.get_hint(board, Color.White, dice_roll)
+        self.assertGreater(len(hints), 0, "gnubg should return hints for racing")
+
+        our_moves = self.white_player._parse_gnubg_move_string(hints[0].moves)
+
+        dice = Dice(roll=dice_roll)
+        possible = board.possible_moves(Color.White, dice)
+
+        found = any(set(moves) == set(our_moves) for moves, _ in possible)
+        self.assertTrue(found,
+            f"gnubg suggested '{hints[0].moves}' for racing position "
+            f"but it's not in our possible moves")
 
 
 if __name__ == "__main__":
