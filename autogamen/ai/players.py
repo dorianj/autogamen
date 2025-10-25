@@ -125,7 +125,7 @@ class GnubgPlayer(Player):
 
     # convert gnubg move string (e.g. "24/18 13/11") to our Move objects
     try:
-      our_moves = self._parse_gnubg_move_string(best_gnubg_move)
+      our_moves = self._parse_gnubg_move_string(best_gnubg_move, dice.roll)
 
       # find the matching move in possible_moves
       for moves, _ in possible_moves:
@@ -154,7 +154,7 @@ class GnubgPlayer(Player):
     else:
       return gnubg_point
 
-  def _parse_gnubg_move_string(self, move_str: str) -> tuple[Move, ...]:
+  def _parse_gnubg_move_string(self, move_str: str, dice: tuple[int, int]) -> tuple[Move, ...]:
     """convert gnubg move notation like "24/18 13/11" to our Move objects.
 
     gnubg uses player-relative notation where point 24 is always the starting position
@@ -162,33 +162,58 @@ class GnubgPlayer(Player):
     """
     move_parts = move_str.split()
     moves = []
+    available_dice = list(dice) if dice[0] != dice[1] else [dice[0]] * 4
 
     for part in move_parts:
-      match = re.match(r'(\d+|bar)/(\d+|off)', part.lower())
+      # match move with optional repetition count: "24/18" or "24/18(2)"
+      match = re.match(r'(\d+|bar)/(\d+|off)(?:\((\d+)\))?', part.lower())
       if match:
         source_str = match.group(1)
         dest_str = match.group(2)
+        count_str = match.group(3)
+        count = int(count_str) if count_str else 1
 
-        if source_str == "bar":
-          our_source = Move.Bar
-        else:
-          gnubg_source = int(source_str)
-          our_source = self._gnubg_to_our_point(gnubg_source)
-
-        if dest_str == "off":
-          # bearing off
-          if our_source == Move.Bar:
-            raise ValueError("cannot bear off from bar")
-          if self.color == Color.White:
-            distance = our_source
+        # repeat the move 'count' times for doubles notation
+        for _ in range(count):
+          if source_str == "bar":
+            our_source = Move.Bar
           else:
-            distance = 25 - our_source
-        else:
-          gnubg_dest = int(dest_str)
-          our_dest = self._gnubg_to_our_point(gnubg_dest)
-          distance = abs(our_source - our_dest)
+            gnubg_source = int(source_str)
+            our_source = self._gnubg_to_our_point(gnubg_source)
 
-        moves.append(Move(self.color, our_source, distance))
+          if dest_str == "off":
+            # bearing off: need to determine which die was used
+            if our_source == Move.Bar:
+              raise ValueError("cannot bear off from bar")
+
+            # calculate minimum distance needed to bear off from this point
+            # white: points 19-24 are home (19 needs 6, 20 needs 5, ..., 24 needs 1)
+            # black: points 1-6 are home (1 needs 6, 2 needs 5, ..., 6 needs 1)
+            if self.color == Color.White:
+              min_die_needed = 25 - our_source
+            else:
+              min_die_needed = 7 - our_source
+
+            # find matching die from available dice
+            distance = None
+            for die in sorted(available_dice, reverse=True):
+              if die >= min_die_needed:
+                distance = die
+                available_dice.remove(die)
+                break
+
+            if distance is None:
+              raise ValueError(f"no available die can bear off from point {our_source}")
+          else:
+            gnubg_dest = int(dest_str)
+            our_dest = self._gnubg_to_our_point(gnubg_dest)
+            distance = abs(our_source - our_dest)
+
+            # remove used die from available dice
+            if distance in available_dice:
+              available_dice.remove(distance)
+
+          moves.append(Move(self.color, our_source, distance))
 
     return tuple(moves)
 
