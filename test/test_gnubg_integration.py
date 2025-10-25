@@ -437,5 +437,236 @@ class TestGnubgMidGamePositions(unittest.TestCase):
             f"but it's not in our possible moves")
 
 
+class TestGnubgBoardFormatBugs(unittest.TestCase):
+    """test specific bugs in gnubg board format generation.
+
+    these tests expose the bug where we send 25 integers but gnubg requires 26.
+    """
+
+    def setUp(self):
+        self.gnubg = GnubgInterface(plies=0)
+        self.gnubg.start()
+
+    def tearDown(self):
+        self.gnubg.stop()
+
+    def test_board_format_has_correct_integer_count(self):
+        """gnubg requires exactly 26 integers but we send 25."""
+        board = Board(standard_starting_points())
+
+        # get the board string we generate
+        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
+        parts = board_str.split()
+
+        # first part is "simple", rest should be integers
+        integer_count = len(parts) - 1
+
+        self.assertEqual(integer_count, 26,
+            f"gnubg requires 26 integers (24 points + 2 bar counts), "
+            f"but we're sending {integer_count}. "
+            f"board string: {board_str}")
+
+    def test_bar_count_format_separate_values(self):
+        """gnubg needs two separate bar counts, not one signed value."""
+        points = list(standard_starting_points())
+        points[0] = Point(1, Color.White)  # reduce point 1 by 1
+        board = Board(points, bar=[1, 0])  # white has 1 on bar, black has 0
+
+        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
+        parts = board_str.split()
+
+        # the last two integers should be bar counts
+        # integer 25 (parts[-2]) should be player bar count = 1
+        # integer 26 (parts[-1]) should be opponent bar count = 0
+
+        if len(parts) >= 3:
+            player_bar = int(parts[-2]) if len(parts) > 25 else None
+            opponent_bar = int(parts[-1]) if len(parts) > 25 else None
+
+            self.assertEqual(player_bar, 1,
+                f"integer 25 should be player bar count (1), got {player_bar}")
+            self.assertEqual(opponent_bar, 0,
+                f"integer 26 should be opponent bar count (0), got {opponent_bar}")
+        else:
+            self.fail(f"not enough integers in board string: {board_str}")
+
+    def test_gnubg_accepts_board_without_error(self):
+        """verify gnubg accepts our board format without errors."""
+        board = Board(standard_starting_points())
+        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
+
+        # send the board and check gnubg's response
+        self.gnubg._send_command("new game")
+        self.gnubg._read_until_prompt()
+        self.gnubg._send_command(f"set board {board_str}")
+        response = self.gnubg._read_until_prompt()
+
+        # if gnubg rejects the format, it will say "must be followed by 26 integers"
+        self.assertNotIn("must be followed by 26 integers", response,
+            f"gnubg rejected our board format: {response}\n"
+            f"board string: {board_str}")
+        self.assertNotIn("found only", response,
+            f"gnubg rejected our board format: {response}")
+
+
+class TestGnubgBearingOffParsing(unittest.TestCase):
+    """test bearing off move parsing bugs.
+
+    these tests expose the bug where bearing off distance is calculated wrong.
+    """
+
+    def setUp(self):
+        self.white_player = GnubgPlayer(Color.White, plies=0)
+        self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
+        self.black_player = GnubgPlayer(Color.Black, plies=0)
+        self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
+
+    def tearDown(self):
+        self.white_player.gnubg.stop()
+        self.black_player.gnubg.stop()
+
+    def test_white_bearing_off_simple(self):
+        """white bearing off: "6/off" should mean bear off from gnubg point 6 using the die."""
+        # gnubg point 6 = our point 19 for white
+        # if rolling a 6, distance should be 6 (the die value)
+        # NOT 19 (the point number)
+
+        moves = self.white_player._parse_gnubg_move_string("6/off")
+
+        self.assertEqual(len(moves), 1, "should parse exactly one move")
+        move = moves[0]
+
+        self.assertEqual(move.color, Color.White)
+        self.assertEqual(move.point_number, 19,
+            f"gnubg point 6 = our point 19, got {move.point_number}")
+
+        # the bug: we calculate distance as our_source (19 or 20)
+        # but it should be the die value used for bearing off
+        # for point 19, minimum distance to bear off is 6
+        # actual distance depends on which die was rolled
+        self.assertLessEqual(move.distance, 6,
+            f"bearing off from point 19 needs distance 6 at most, "
+            f"but parsed distance is {move.distance}. "
+            f"this suggests we're using the point number instead of die value.")
+
+    def test_white_bearing_off_with_move(self):
+        """compound move with bearing off: "5/2 5/off" from dice (6,3)."""
+        # gnubg suggests "5/2 5/off" for dice (6,3)
+        # "5/2" = gnubg point 5 to 2 = our point 20 to 23 = distance 3
+        # "5/off" = bearing off from gnubg point 5 = our point 20 with die 6
+
+        moves = self.white_player._parse_gnubg_move_string("5/2 5/off")
+
+        self.assertEqual(len(moves), 2, "should parse exactly two moves")
+
+        # find the bearing off move
+        bearing_off_move = None
+        regular_move = None
+        for m in moves:
+            if m.destination_is_off:
+                bearing_off_move = m
+            else:
+                regular_move = m
+
+        self.assertIsNotNone(bearing_off_move, "should have a bearing off move")
+        self.assertIsNotNone(regular_move, "should have a regular move")
+
+        # regular move should be correct
+        self.assertEqual(regular_move.point_number, 20)
+        self.assertEqual(regular_move.distance, 3)
+
+        # bearing off move is the problem
+        self.assertEqual(bearing_off_move.point_number, 20,
+            f"bearing off from gnubg point 5 = our point 20")
+
+        # with dice (6,3), and "5/2" using the 3,
+        # "5/off" must use the 6
+        self.assertEqual(bearing_off_move.distance, 6,
+            f"bearing off should use die value 6, "
+            f"but parsed distance is {bearing_off_move.distance}")
+
+    def test_black_bearing_off_simple(self):
+        """black bearing off: "6/off" should use die value not point number."""
+        # for black, gnubg point 6 = our point 6
+        # bearing off from point 6 needs distance >= 6
+
+        moves = self.black_player._parse_gnubg_move_string("6/off")
+
+        self.assertEqual(len(moves), 1)
+        move = moves[0]
+
+        self.assertEqual(move.color, Color.Black)
+        self.assertEqual(move.point_number, 6)
+
+        # the bug applies to black too
+        self.assertLessEqual(move.distance, 6,
+            f"bearing off from point 6 with a 6 die should have distance 6, "
+            f"but got {move.distance}")
+
+
+class TestGnubgDoublesNotation(unittest.TestCase):
+    """test doubles notation parsing bugs.
+
+    these tests expose the bug where "(2)" repetition markers are ignored.
+    """
+
+    def setUp(self):
+        self.white_player = GnubgPlayer(Color.White, plies=0)
+        self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
+        self.black_player = GnubgPlayer(Color.Black, plies=0)
+        self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
+
+    def tearDown(self):
+        self.white_player.gnubg.stop()
+        self.black_player.gnubg.stop()
+
+    def test_doubles_notation_with_count(self):
+        """gnubg uses "24/18(2)" to mean do 24/18 twice."""
+        moves = self.white_player._parse_gnubg_move_string("24/18(2)")
+
+        # for doubles, we need to expand "(2)" into two separate moves
+        # but the bug is that we ignore "(2)" and only create one move
+        self.assertEqual(len(moves), 2,
+            f"'24/18(2)' means do the move twice, "
+            f"but we parsed only {len(moves)} move(s): {moves}")
+
+    def test_doubles_notation_multiple_parts(self):
+        """complex doubles: "bar/19(2) 16/10(2)" means 4 total moves."""
+        moves = self.white_player._parse_gnubg_move_string("bar/19(2) 16/10(2)")
+
+        # "bar/19" twice + "16/10" twice = 4 moves total
+        self.assertEqual(len(moves), 4,
+            f"'bar/19(2) 16/10(2)' should expand to 4 moves, "
+            f"but we parsed {len(moves)} move(s): {moves}")
+
+        # verify the moves are correct
+        bar_moves = [m for m in moves if m.point_number == Move.Bar]
+        regular_moves = [m for m in moves if m.point_number != Move.Bar]
+
+        self.assertEqual(len(bar_moves), 2,
+            f"should have 2 bar entry moves, got {len(bar_moves)}")
+        self.assertEqual(len(regular_moves), 2,
+            f"should have 2 regular moves, got {len(regular_moves)}")
+
+    def test_doubles_without_count_marker(self):
+        """some doubles are written without (N): "13/7 13/7" instead of "13/7(2)"."""
+        # gnubg sometimes writes doubles explicitly rather than with (2)
+        moves = self.white_player._parse_gnubg_move_string("13/7 13/7")
+
+        self.assertEqual(len(moves), 2,
+            f"'13/7 13/7' should parse as 2 separate moves")
+
+        # both should be the same move
+        self.assertEqual(moves[0], moves[1],
+            "repeated notation should create identical moves")
+
+    def test_mixed_doubles_notation(self):
+        """mixed notation: "24/18(2) 18/16 18/16" = 4 moves."""
+        moves = self.white_player._parse_gnubg_move_string("24/18(2) 18/16 18/16")
+
+        self.assertEqual(len(moves), 4,
+            f"should expand to 4 moves total, got {len(moves)}")
+
+
 if __name__ == "__main__":
     unittest.main()
