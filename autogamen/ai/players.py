@@ -235,3 +235,88 @@ class GnubgPlayer(Player):
   def __del__(self) -> None:
     if hasattr(self, 'gnubg'):
       self.gnubg.stop()
+
+
+class PypibgPlayer(Player):
+  """uses pypibg (gnubg python package) for ultra-fast 0-ply neural net evaluation.
+
+  ~1000x faster than GnubgPlayer for 0-ply, but alpha-quality package.
+  only supports 0-ply; 1+ ply is unusably slow in the pypibg package.
+  """
+
+  def __init__(self, color: Color) -> None:
+    super().__init__(color)
+    try:
+      import gnubg as pypibg  # type: ignore[import-untyped] # noqa: PLC0415
+      self.pypibg = pypibg
+    except ImportError as e:
+      raise RuntimeError("gnubg package not installed (pip install gnubg)") from e
+
+  def _our_board_to_pypibg(self, board: "_Board") -> list[list[int]]:
+    """convert our board format to pypibg package format.
+
+    pypibg uses: [[white positions], [black positions]]
+    each position list has 25 elements: [off, point1..point24]
+
+    our board has:
+    - board.points[0..23] are points 1-24 (accessed via point_at_number(1..24))
+    - board.off[color] is checkers borne off
+    - board.bar[color] is checkers on bar
+    """
+    white_pos = [board.off[Color.White.value]]
+    black_pos = [board.off[Color.Black.value]]
+
+    for point_number in range(1, 25):
+      point = board.point_at_number(point_number)
+      if point.color == Color.White:
+        white_pos.append(point.count)
+        black_pos.append(0)
+      elif point.color == Color.Black:
+        white_pos.append(0)
+        black_pos.append(point.count)
+      else:
+        white_pos.append(0)
+        black_pos.append(0)
+
+    # pypibg package seems to use position 24 for bar (based on docs)
+    # but we'll add bar separately if needed - this is experimental
+    if board.bar[Color.White.value] > 0:
+      white_pos[24] = board.bar[Color.White.value]
+    if board.bar[Color.Black.value] > 0:
+      black_pos[24] = board.bar[Color.Black.value]
+
+    return [white_pos, black_pos]
+
+  def action(self, possible_moves: set[tuple[tuple[Any, ...], Any]]) -> list[Any]:
+    if not len(possible_moves):
+      return [TurnAction.Pass]
+
+    # score each possible resulting board using 0-ply neural net
+    boards_by_score: dict[float, list[tuple[Any, ...]]] = {}
+
+    for moves, board in possible_moves:
+      pypibg_board = self._our_board_to_pypibg(board)
+
+      # probabilities returns [win, win_gammon, win_bg, lose_gammon, lose_bg]
+      # we care about overall win probability (index 0)
+      probs = self.pypibg.probabilities(pypibg_board, 0)
+
+      # probs[0] is white's win probability
+      # if we're white, higher is better; if black, lower is better
+      if self.color == Color.White:
+        score = probs[0]
+      else:
+        score = 1.0 - probs[0]
+
+      if score not in boards_by_score:
+        boards_by_score[score] = []
+      boards_by_score[score].append(moves)
+
+    # pick best scoring move
+    best_score = max(boards_by_score.keys())
+    best_moves = boards_by_score[best_score]
+
+    return [TurnAction.Move, random.choice(best_moves)]
+
+  def accept_doubling_cube(self) -> bool:
+    return True
