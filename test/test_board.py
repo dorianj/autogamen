@@ -489,6 +489,54 @@ class TestFrozenBoardApplyMoves(unittest.TestCase):
       test_case(Color.Black, points, Board.color_counter({Color.White: 1, Color.Black: 0}))
 
 
+class TestMixedDiceMovement(unittest.TestCase):
+  """regression tests for the mixed dice bug where (3,1) only generated (3,3) or (1,1) moves."""
+
+  def test_opening_31_makes_five_point(self):
+    """the classic 3-1 opening move (8/5 6/5 in gnubg notation) must exist."""
+    board = Board(default_starting_points)
+    possible = board.possible_moves(Color.White, Dice(roll=(3,1)))
+
+    # point 17 forward 3 → point 20, point 19 forward 1 → point 20
+    target_moves = {Move(Color.White, 17, 3), Move(Color.White, 19, 1)}
+    found = any(set(moves) == target_moves for moves, _ in possible)
+
+    self.assertTrue(found, "classic 3-1 opening 'make the 5-point' move must be generated")
+
+  def test_mixed_dice_generates_both_values(self):
+    """non-doubles should generate moves using both die values, not just one."""
+    board = Board(default_starting_points)
+
+    for dice_roll in [(3,1), (6,2), (5,4), (6,1)]:
+      with self.subTest(dice=dice_roll):
+        possible = board.possible_moves(Color.White, Dice(roll=dice_roll))
+
+        # all moves should use both die values
+        for moves, _ in possible:
+          distances = sorted(m.distance for m in moves)
+          expected = sorted(dice_roll)
+          self.assertEqual(distances, expected,
+            f"moves for {dice_roll} should use distances {expected}, got {distances}")
+
+  def test_opening_62_reasonable_count(self):
+    """opening 6-2 should generate a reasonable number of distinct sequences."""
+    board = Board(default_starting_points)
+    possible = board.possible_moves(Color.White, Dice(roll=(6,2)))
+
+    # with the bug, this would only generate moves using (6,6) or (2,2)
+    # with the fix, should generate many more legal (6,2) combinations
+    self.assertGreater(len(possible), 5, "should generate multiple legal 6-2 opening sequences")
+
+  def test_doubles_still_work(self):
+    """doubles should still use all four dice."""
+    board = Board(default_starting_points)
+    possible = board.possible_moves(Color.White, Dice(roll=(3,3)))
+
+    self.assertGreater(len(possible), 0, "doubles should generate moves")
+    all_use_4_dice = all(len(moves) == 4 for moves, _ in possible)
+    self.assertTrue(all_use_4_dice, "all double moves should use all 4 dice")
+
+
 class TestPerformance(unittest.TestCase):
   def test_double_roll_filled_board_performance(self):
     board = Board(

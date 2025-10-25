@@ -206,7 +206,11 @@ class _Board:
     """
     def _worker(board: Any, remaining_dice: Any) -> set[Any]:
       moves = set()
-      for d, die in enumerate(set(remaining_dice)):
+      tried_values = set()
+      for d, die in enumerate(remaining_dice):
+        if die in tried_values:
+          continue
+        tried_values.add(die)
         # Attempt to find moves on the board or bar. We're gonna do a little
         # sneaky thing and start at 0, which is Move.Bar, which will ensure that
         # we get pips off the bar before moving pips on the board. I'm sorry.
