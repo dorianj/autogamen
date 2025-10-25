@@ -74,14 +74,36 @@ def train_directory(tag: str) -> str:
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'out', 'train', tag)
 
 
-def write_checkpoint(path: str, net: "Net", game_count: int) -> None:
-    """Save training checkpoint"""
+def clean_offcycle_checkpoints(run_dir: str, checkpoint_schedule: list[int]) -> None:
+    """delete off-cycle checkpoints (not in the schedule)"""
+    all_checkpoints = glob.glob(os.path.join(run_dir, "net-*.torch"))
+    schedule_set = set(checkpoint_schedule)
+
+    for checkpoint_path in all_checkpoints:
+        # extract game count from filename: net-0001337.torch -> 1337
+        basename = os.path.basename(checkpoint_path)
+        if basename.startswith("net-") and basename.endswith(".torch"):
+            game_count_str = basename[4:-6]  # strip "net-" and ".torch"
+            try:
+                game_count = int(game_count_str)
+                if game_count not in schedule_set:
+                    os.remove(checkpoint_path)
+            except ValueError:
+                # malformed filename, skip it
+                pass
+
+
+def write_checkpoint(path: str, net: "Net", game_count: int, run_dir: str, checkpoint_schedule: list[int]) -> None:
+    """Save training checkpoint and clean up off-cycle checkpoints"""
     torch.save({
         'model_state_dict': net.state_dict(),
         'eligibility': net.eligibility_traces,
         'game_count': game_count,
         'time': datetime.now().isoformat()
     }, path)
+
+    # clean up any off-cycle checkpoints
+    clean_offcycle_checkpoints(run_dir, checkpoint_schedule)
 
 
 def load_checkpoint(path: str) -> tuple["Net", dict]:
@@ -471,7 +493,7 @@ def run_reinforcement_learning(
         current_total_games = starting_game + i
         if current_total_games in checkpoint_schedule:
             checkpoint_path = os.path.join(run_dir, f"net-{current_total_games:07d}.torch")
-            write_checkpoint(checkpoint_path, net, current_total_games)
+            write_checkpoint(checkpoint_path, net, current_total_games, run_dir, checkpoint_schedule)
 
             # generate incremental report with full history
             generate_html_report(tag, metrics, i)
@@ -480,7 +502,7 @@ def run_reinforcement_learning(
         if interrupted:
             current_total_games = starting_game + i
             checkpoint_path = os.path.join(run_dir, f"net-{current_total_games:07d}.torch")
-            write_checkpoint(checkpoint_path, net, current_total_games)
+            write_checkpoint(checkpoint_path, net, current_total_games, run_dir, checkpoint_schedule)
             print(f"✔ saved interrupt checkpoint at game {current_total_games}")
             generate_html_report(tag, metrics, i)
             print(f"⚠ training interrupted after {i} games")

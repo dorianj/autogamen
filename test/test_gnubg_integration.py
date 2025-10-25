@@ -577,7 +577,7 @@ class TestGnubgBearingOffParsing(unittest.TestCase):
 
         # bearing off move is the problem
         self.assertEqual(bearing_off_move.point_number, 20,
-            f"bearing off from gnubg point 5 = our point 20")
+            "bearing off from gnubg point 5 = our point 20")
 
         # with dice (6,3), and "5/2" using the 3,
         # "5/off" must use the 6
@@ -654,7 +654,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
         moves = self.white_player._parse_gnubg_move_string("13/7 13/7")
 
         self.assertEqual(len(moves), 2,
-            f"'13/7 13/7' should parse as 2 separate moves")
+            "'13/7 13/7' should parse as 2 separate moves")
 
         # both should be the same move
         self.assertEqual(moves[0], moves[1],

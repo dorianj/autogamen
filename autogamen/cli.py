@@ -328,7 +328,7 @@ def neuro_evolution(
 @click.option(
     "--games",
     help="Number of games to play",
-    default=10,
+    default=10_000_000,
     type=int,
 )
 @click.option(
