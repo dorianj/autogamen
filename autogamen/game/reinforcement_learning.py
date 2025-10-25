@@ -5,6 +5,8 @@ import glob
 import io
 import os.path
 import pstats
+import signal
+import subprocess
 import time
 from datetime import datetime
 
@@ -15,12 +17,10 @@ import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 
-from autogamen.ai.mlp import MLPPlayer, Net, VectorMLPPlayer
-from autogamen.ai.players import BozoPlayer, DeltaPlayer
+from autogamen.ai.mlp import Net, VectorMLPPlayer
 from autogamen.game import vector_game as vg
 from autogamen.game.board import Board
 from autogamen.game.game_types import Color, Dice, Point
-from autogamen.game.match import Match
 
 
 def _fmt_percent(p: float) -> str:
@@ -189,34 +189,13 @@ def run_game(white: "VectorMLPPlayer", black: "VectorMLPPlayer", net: "Net") -> 
     return metrics
 
 
-def run_exhib_match(net: "Net", cls: type) -> tuple[bool, int, int]:
-    """Run exhibition match for evaluation. Returns (won, mlp_points, opponent_points)"""
-    match = Match([MLPPlayer(Color.White, net, False), cls(Color.Black)], 15)
-
-    while match.winner is None:
-        match.tick()
-
-    won = match.winner.color == Color.White
-    print("{} exhibition vs {}, {} to {} in {} turns".format(
-        "WON" if won else "Lost",
-        cls.__name__,
-        match.points[Color.White],
-        match.points[Color.Black],
-        match.turn_count,
-    ))
-    return won, match.points[Color.White], match.points[Color.Black]
-
-
 class TrainingMetrics:
     """Metrics collected during training"""
     def __init__(self) -> None:
         self.game_lengths: list[int] = []
         self.td_errors: list[float] = []
         self.weight_norms: list[float] = []
-        self.eval_games: list[int] = []  # Game numbers where evaluations occurred
-        self.bozo_wins: list[bool] = []
-        self.delta_wins: list[bool] = []
-        self.timestamps: list[float] = []  # Time elapsed for each game
+        self.timestamps: list[float] = []
 
 
 def generate_html_report(tag: str, metrics: TrainingMetrics, games: int) -> str:
@@ -228,12 +207,8 @@ def generate_html_report(tag: str, metrics: TrainingMetrics, games: int) -> str:
     plt.style.use('dark_background')
 
     # Create figure with subplots
-    num_charts = 4 if metrics.eval_games else 3
-    fig, axes = plt.subplots(num_charts, 1, figsize=(12, 4 * num_charts))
+    fig, axes = plt.subplots(3, 1, figsize=(12, 12))
     fig.patch.set_facecolor('black')
-
-    if num_charts == 3:
-        axes = list(axes)
 
     game_numbers = list(range(1, len(metrics.game_lengths) + 1))
 
@@ -276,22 +251,6 @@ def generate_html_report(tag: str, metrics: TrainingMetrics, games: int) -> str:
     ax.set_ylabel('Total Weight Norm', color='white')
     ax.set_title('Network Weight Norm Over Time', color='white', fontsize=14, fontweight='bold')
     ax.grid(True, alpha=0.2)
-
-    # Chart 4: Win Rate (if available)
-    if metrics.eval_games:
-        ax = axes[3]
-        ax.set_facecolor('black')
-        # Calculate cumulative win rates
-        bozo_rate = [sum(metrics.bozo_wins[:i+1]) / (i+1) for i in range(len(metrics.bozo_wins))]
-        delta_rate = [sum(metrics.delta_wins[:i+1]) / (i+1) for i in range(len(metrics.delta_wins))]
-        ax.plot(metrics.eval_games, bozo_rate, color='red', linewidth=2, marker='o', label='vs BozoPlayer')
-        ax.plot(metrics.eval_games, delta_rate, color='blue', linewidth=2, marker='s', label='vs DeltaPlayer')
-        ax.set_xlabel('Game Number', color='white')
-        ax.set_ylabel('Win Rate', color='white')
-        ax.set_title('Win Rate in Exhibition Matches', color='white', fontsize=14, fontweight='bold')
-        ax.set_ylim(-0.05, 1.05)
-        ax.legend()
-        ax.grid(True, alpha=0.2)
 
     plt.tight_layout()
 
@@ -415,7 +374,6 @@ def run_reinforcement_learning(
     tag: str | None,
     alpha: float,
     profile: bool,
-    exhibition: bool,
 ) -> tuple[str, TrainingMetrics, "Net"]:
     """Main entry point for reinforcement learning training.
 
@@ -433,7 +391,6 @@ def run_reinforcement_learning(
             print(f"ℹ resuming from latest training run: {tag}")
         else:
             # create new tag: timestamp_githash
-            import subprocess
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             try:
                 git_hash = subprocess.check_output(
@@ -465,7 +422,7 @@ def run_reinforcement_learning(
     else:
         net = Net()
         starting_game = 0
-        print(f"✔ initialized new network")
+        print("✔ initialized new network")
 
     # set learning rate if provided
     if alpha:
@@ -474,6 +431,15 @@ def run_reinforcement_learning(
     # metrics tracking
     metrics = TrainingMetrics()
     start_time = time.perf_counter()
+
+    # setup ctrl-c handler for graceful checkpoint on interrupt
+    interrupted = False
+    def signal_handler(signum: int, frame: object) -> None:
+        nonlocal interrupted
+        interrupted = True
+        print("\n⚠ interrupt received, checkpointing before exit...")
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     white, black = VectorMLPPlayer(Color.White, net, True), VectorMLPPlayer(Color.Black, net, True)
 
@@ -507,16 +473,18 @@ def run_reinforcement_learning(
             checkpoint_path = os.path.join(run_dir, f"net-{current_total_games:07d}.torch")
             write_checkpoint(checkpoint_path, net, current_total_games)
 
-            # exhibition matches for evaluation
-            if exhibition:
-                metrics.eval_games.append(i)
-                bozo_won, _, _ = run_exhib_match(net, BozoPlayer)
-                delta_won, _, _ = run_exhib_match(net, DeltaPlayer)
-                metrics.bozo_wins.append(bozo_won)
-                metrics.delta_wins.append(delta_won)
-
             # generate incremental report with full history
             generate_html_report(tag, metrics, i)
+
+        # check for interrupt after each game
+        if interrupted:
+            current_total_games = starting_game + i
+            checkpoint_path = os.path.join(run_dir, f"net-{current_total_games:07d}.torch")
+            write_checkpoint(checkpoint_path, net, current_total_games)
+            print(f"✔ saved interrupt checkpoint at game {current_total_games}")
+            generate_html_report(tag, metrics, i)
+            print(f"⚠ training interrupted after {i} games")
+            return tag, metrics, net
 
     elapsed = time.perf_counter() - start_time
     print(f"✔ finished! {elapsed:.1f}s total, {elapsed / games:.3f}s per game")

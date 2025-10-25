@@ -348,18 +348,12 @@ def neuro_evolution(
     help="Run Python profiler",
     is_flag=True,
 )
-@click.option(
-    "--exhibition",
-    help="Run exhibition matches during checkpoints",
-    is_flag=True,
-)
 @with_log_level
 def reinforcement_learning(
     games: int,
     tag: str | None,
     alpha: float,
     profile: bool,
-    exhibition: bool,
 ) -> None:
     """train using reinforcement learning.
 
@@ -367,11 +361,10 @@ def reinforcement_learning(
 
     examples:
       autogamen train-rl --games 10000              # 10k games
-      autogamen train-rl --exhibition               # with eval matches
       autogamen train-rl --tag myexp                # custom tag
     """
     from autogamen.game.reinforcement_learning import run_reinforcement_learning
-    run_reinforcement_learning(games, tag, alpha, profile, exhibition)
+    run_reinforcement_learning(games, tag, alpha, profile)
 
 
 if __name__ == "__main__":
