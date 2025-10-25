@@ -130,10 +130,10 @@ class GnubgInterface:
     def _board_to_gnubg_simple(self, board: "_Board", player_color: "Color") -> str:
         """convert our board to gnubg simple format.
 
-        gnubg simple format: 24 integers for points 1-24, plus bar count
-        - positive numbers = X (player on roll)
-        - negative numbers = O (opponent)
-        - format: "simple <point1> <point2> ... <point24> <bar_count>"
+        gnubg simple format: 26 integers total
+        - 24 integers for points 1-24 (positive = player on roll, negative = opponent)
+        - integer 25: player's bar count (non-negative)
+        - integer 26: opponent's bar count (non-negative)
 
         gnubg uses player-relative point numbering:
         - for white: gnubg point 1 = our point 24, gnubg point 24 = our point 1
@@ -160,11 +160,11 @@ class GnubgInterface:
                 sign = 1 if point.color == player_color else -1
                 gnubg_points.append(sign * point.count)
 
-        # bar count: positive if player_color is on bar
-        bar_count = board.bar[player_color.value] - board.bar[player_color.opponent().value]
+        player_bar_count = board.bar[player_color.value]
+        opponent_bar_count = board.bar[player_color.opponent().value]
 
         points_str = " ".join(str(p) for p in gnubg_points)
-        return f"simple {points_str} {bar_count}"
+        return f"simple {points_str} {player_bar_count} {opponent_bar_count}"
 
     def get_hint(self, board: "_Board", color: "Color", dice: tuple[int, int]) -> list[GnubgMove]:
         """get move suggestions from gnubg for the given position."""
