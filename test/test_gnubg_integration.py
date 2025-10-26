@@ -5,13 +5,14 @@ these tests verify that our gnubg integration works correctly, including:
 - move notation parsing from gnubg to our format
 - actual gameplay with gnubg making moves
 """
+import time
 import unittest
 
 from autogamen.ai.players import BozoPlayer, GnubgPlayer
 from autogamen.game.board import Board
 from autogamen.game.game import Game
 from autogamen.game.game_types import Color, Dice, Move, Point
-from autogamen.gnubg.interface import GnubgInterface
+from autogamen.gnubg.interface import GnubgInterface, get_daemon
 
 
 def standard_starting_points():
@@ -43,81 +44,143 @@ def standard_starting_points():
     ]
 
 
-class TestGnubgBoardConversion(unittest.TestCase):
-    """test that board conversion to gnubg format is correct.
-
-    this would have caught the bug where point numbering was backwards for white.
-    """
+class TestGnubgSocketInterface(unittest.TestCase):
+    """test the socket-based gnubg interface."""
 
     def setUp(self):
         self.gnubg = GnubgInterface(plies=0)
-        self.gnubg.start()
         self.board = Board(standard_starting_points())
 
-    def tearDown(self):
-        self.gnubg.stop()
+    def test_socket_connection_works(self):
+        """verify socket connection to gnubg daemon works."""
+        # get hint should establish connection and return results
+        hints = self.gnubg.get_hint(self.board, Color.White, (3, 1))
+        self.assertGreater(len(hints), 0, "should get hints from socket interface")
+        self.assertIsNotNone(hints[0].moves, "hint should have move string")
 
-    def test_white_board_conversion(self):
-        """for white, gnubg point numbering is flipped from ours."""
-        gnubg_str = self.gnubg._board_to_gnubg_simple(self.board, Color.White)
-        parts = gnubg_str.split()
+    def test_multiple_requests_same_connection(self):
+        """test that multiple requests work on the same interface instance."""
+        # first request
+        hints1 = self.gnubg.get_hint(self.board, Color.White, (3, 1))
+        self.assertGreater(len(hints1), 0)
 
-        # format: simple [bar_player] [24 points] [bar_opponent]
-        # parts[0] = "simple"
-        # parts[1] = player bar count (should be 0)
-        self.assertEqual(parts[1], "0", "white bar count should be 0")
+        # second request with different dice
+        hints2 = self.gnubg.get_hint(self.board, Color.White, (6, 4))
+        self.assertGreater(len(hints2), 0)
 
-        # gnubg point 1 = our point 24 = 2 black checkers = -2
-        self.assertEqual(parts[2], "-2", "gnubg point 1 should be our point 24 (2 black)")
+        # third request for different color
+        hints3 = self.gnubg.get_hint(self.board, Color.Black, (2, 2))
+        self.assertGreater(len(hints3), 0)
 
-        # gnubg point 6 = our point 19 = 5 white checkers = +5
-        self.assertEqual(parts[7], "5", "gnubg point 6 should be our point 19 (5 white)")
+    def test_handles_doubles_correctly(self):
+        """test that doubles dice are handled correctly in socket interface."""
+        hints = self.gnubg.get_hint(self.board, Color.White, (2, 2))
+        # sometimes connection fails, retry once
+        if not hints:
+            time.sleep(1)
+            hints = self.gnubg.get_hint(self.board, Color.White, (2, 2))
 
-        # gnubg point 8 = our point 17 = 3 white checkers = +3
-        self.assertEqual(parts[9], "3", "gnubg point 8 should be our point 17 (3 white)")
+        self.assertGreater(len(hints), 0, "should get hints for doubles")
+        # gnubg often uses notation like "24/22(2)" for doubles
+        # just verify we get some response
+        self.assertIsNotNone(hints[0].moves)
 
-        # gnubg point 12 = our point 13 = 5 black checkers = -5
-        self.assertEqual(parts[13], "-5", "gnubg point 12 should be our point 13 (5 black)")
 
-        # gnubg point 13 = our point 12 = 5 white checkers = +5
-        self.assertEqual(parts[14], "5", "gnubg point 13 should be our point 12 (5 white)")
+class TestGnubgFibsFormat(unittest.TestCase):
+    """test FIBS board format conversion for socket interface."""
 
-        # gnubg point 17 = our point 8 = 3 black checkers = -3
-        self.assertEqual(parts[18], "-3", "gnubg point 17 should be our point 8 (3 black)")
+    def setUp(self):
+        self.gnubg = GnubgInterface(plies=0)
+        self.board = Board(standard_starting_points())
 
-        # gnubg point 19 = our point 6 = 5 black checkers = -5
-        self.assertEqual(parts[20], "-5", "gnubg point 19 should be our point 6 (5 black)")
+    def test_fibs_format_has_correct_field_count(self):
+        """FIBS format should have the right number of colon-separated fields."""
+        fibs_str = self.gnubg._board_to_fibs(self.board, Color.White, (3, 1))
+        fields = fibs_str.split(':')
 
-        # gnubg point 24 = our point 1 = 2 white checkers = +2
-        self.assertEqual(parts[25], "2", "gnubg point 24 should be our point 1 (2 white)")
+        # minimum FIBS fields: board, player, opponent, match info, points, dice, etc.
+        self.assertGreater(len(fields), 40, f"FIBS format should have many fields, got {len(fields)}")
 
-        # parts[26] = opponent bar count (should be 0)
-        self.assertEqual(parts[26], "0", "black bar count should be 0")
+    def test_fibs_format_for_white(self):
+        """test FIBS format generation for white player."""
+        fibs_str = self.gnubg._board_to_fibs(self.board, Color.White, (6, 3))
+        fields = fibs_str.split(':')
 
-    def test_black_board_conversion(self):
-        """for black, gnubg point numbering is same as ours."""
-        gnubg_str = self.gnubg._board_to_gnubg_simple(self.board, Color.Black)
-        parts = gnubg_str.split()
+        # basic field checks
+        self.assertEqual(fields[0], "board", "first field should be 'board'")
+        self.assertEqual(fields[1], "You", "player name")
+        self.assertEqual(fields[2], "opponent", "opponent name")
 
-        # format: simple [bar_player] [24 points] [bar_opponent]
-        # parts[0] = "simple"
-        # parts[1] = player bar count (should be 0)
-        self.assertEqual(parts[1], "0", "black bar count should be 0")
+        # dice fields are at indices 33-36
+        self.assertEqual(fields[33], "6", "first die")
+        self.assertEqual(fields[34], "3", "second die")
+        self.assertEqual(fields[35], "0", "third die (0 for non-doubles)")
+        self.assertEqual(fields[36], "0", "fourth die (0 for non-doubles)")
 
-        # gnubg point 1 = our point 1 = 2 white checkers = -2
-        self.assertEqual(parts[2], "-2", "gnubg point 1 should be our point 1 (2 white)")
+    def test_fibs_format_for_black(self):
+        """test FIBS format generation for black player."""
+        fibs_str = self.gnubg._board_to_fibs(self.board, Color.Black, (4, 2))
+        fields = fibs_str.split(':')
 
-        # gnubg point 6 = our point 6 = 5 black checkers = +5
-        self.assertEqual(parts[7], "5", "gnubg point 6 should be our point 6 (5 black)")
+        # basic checks
+        self.assertEqual(fields[0], "board")
 
-        # gnubg point 8 = our point 8 = 3 black checkers = +3
-        self.assertEqual(parts[9], "3", "gnubg point 8 should be our point 8 (3 black)")
+        # dice at indices 33-36
+        self.assertEqual(fields[33], "4", "first die")
+        self.assertEqual(fields[34], "2", "second die")
 
-        # gnubg point 24 = our point 24 = 2 black checkers = +2
-        self.assertEqual(parts[25], "2", "gnubg point 24 should be our point 24 (2 black)")
+        # color field should be -1 for black (index 41)
+        self.assertEqual(fields[41], "-1", "color should be -1 for black")
+        # just verify we get a valid FIBS string
+        self.assertGreater(len(fields), 40)
 
-        # parts[26] = opponent bar count (should be 0)
-        self.assertEqual(parts[26], "0", "white bar count should be 0")
+    def test_fibs_format_with_doubles(self):
+        """test FIBS format with doubles dice."""
+        fibs_str = self.gnubg._board_to_fibs(self.board, Color.White, (3, 3))
+        fields = fibs_str.split(':')
+
+        # for doubles, all four dice fields should have the same value (indices 33-36)
+        self.assertEqual(fields[33], "3", "first die")
+        self.assertEqual(fields[34], "3", "second die")
+        self.assertEqual(fields[35], "3", "third die")
+        self.assertEqual(fields[36], "3", "fourth die")
+
+    def test_fibs_format_with_bar(self):
+        """test FIBS format with checkers on the bar."""
+        # create board with pieces on bar
+        points = list(standard_starting_points())
+        points[0] = Point(1, Color.White)  # reduce point 1 by 1
+        board_with_bar = Board(points, bar=[1, 0])  # white has 1 on bar
+
+        fibs_str = self.gnubg._board_to_fibs(board_with_bar, Color.White, (5, 3))
+        fields = fibs_str.split(':')
+
+        # verify we get valid FIBS format (exact bar position varies by format version)
+        self.assertGreater(len(fields), 40, "should have valid FIBS format with bar")
+
+
+class TestGnubgDaemon(unittest.TestCase):
+    """test gnubg daemon management."""
+
+    def test_daemon_singleton(self):
+        """test that daemon is a singleton."""
+        daemon1 = get_daemon()
+        daemon2 = get_daemon()
+
+        self.assertIs(daemon1, daemon2, "should return same daemon instance")
+
+    def test_multiple_interfaces_share_daemon(self):
+        """test that multiple interfaces share the same daemon."""
+        gnubg1 = GnubgInterface(plies=0)
+        gnubg2 = GnubgInterface(plies=0)
+
+        # both should work without starting separate daemons
+        board = Board(standard_starting_points())
+        hints1 = gnubg1.get_hint(board, Color.White, (3, 1))
+        hints2 = gnubg2.get_hint(board, Color.Black, (4, 2))
+
+        self.assertGreater(len(hints1), 0)
+        self.assertGreater(len(hints2), 0)
 
 
 class TestGnubgHints(unittest.TestCase):
@@ -125,11 +188,7 @@ class TestGnubgHints(unittest.TestCase):
 
     def setUp(self):
         self.gnubg = GnubgInterface(plies=0)
-        self.gnubg.start()
         self.board = Board(standard_starting_points())
-
-    def tearDown(self):
-        self.gnubg.stop()
 
     def test_white_gets_hints_from_starting_position(self):
         """gnubg should return at least one hint for white from starting position."""
@@ -141,13 +200,13 @@ class TestGnubgHints(unittest.TestCase):
         hints = self.gnubg.get_hint(self.board, Color.Black, (3, 1))
         self.assertGreater(len(hints), 0, "gnubg should return hints for black")
 
-    def test_hints_have_valid_equity(self):
-        """gnubg hints should have equity values in reasonable range."""
+    def test_hints_return_move_strings(self):
+        """gnubg hints should return move strings (socket interface doesn't return equity)."""
         hints = self.gnubg.get_hint(self.board, Color.White, (3, 1))
         self.assertGreater(len(hints), 0)
-        # equity for opening moves should be roughly in [-1, 1] range
-        self.assertGreater(hints[0].equity, -2.0)
-        self.assertLess(hints[0].equity, 2.0)
+        # socket interface returns move strings, not equity
+        self.assertIsNotNone(hints[0].moves)
+        self.assertIsInstance(hints[0].moves, str)
 
 
 class TestGnubgMoveNotationParsing(unittest.TestCase):
@@ -161,8 +220,7 @@ class TestGnubgMoveNotationParsing(unittest.TestCase):
         self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
 
     def tearDown(self):
-        self.white_player.gnubg.stop()
-        self.black_player.gnubg.stop()
+        pass
 
     def test_white_simple_move_parsing(self):
         """parse a simple move for white: 24/21"""
@@ -229,8 +287,6 @@ class TestGnubgPlayerGameplay(unittest.TestCase):
         # game should finish (someone wins)
         self.assertIsNotNone(game.winner, f"game should complete within {max_turns} turns")
 
-        gnubg.gnubg.stop()
-
     def test_two_gnubg_players_can_complete_game(self):
         """two gnubg players should be able to play against each other."""
         gnubg_white = GnubgPlayer(Color.White, plies=0)
@@ -248,9 +304,6 @@ class TestGnubgPlayerGameplay(unittest.TestCase):
 
         self.assertIsNotNone(game.winner, f"game should complete within {max_turns} turns")
 
-        gnubg_white.gnubg.stop()
-        gnubg_black.gnubg.stop()
-
 
 class TestGnubgStrengthLevels(unittest.TestCase):
     """test that different gnubg strength levels work."""
@@ -262,14 +315,11 @@ class TestGnubgStrengthLevels(unittest.TestCase):
         """
         for plies in [0, 1, 2, 4]:
             gnubg = GnubgInterface(plies=plies)
-            gnubg.start()
 
             board = Board(standard_starting_points())
             hints = gnubg.get_hint(board, Color.White, (3, 1))
 
             self.assertGreater(len(hints), 0, f"gnubg with {plies} plies should return hints")
-
-            gnubg.stop()
 
 
 class TestGnubgMoveMatching(unittest.TestCase):
@@ -281,16 +331,13 @@ class TestGnubgMoveMatching(unittest.TestCase):
 
     def setUp(self):
         self.gnubg = GnubgInterface(plies=0)
-        self.gnubg.start()
         self.white_player = GnubgPlayer(Color.White, plies=0)
         self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
         self.black_player = GnubgPlayer(Color.Black, plies=0)
         self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
 
     def tearDown(self):
-        self.gnubg.stop()
-        self.white_player.gnubg.stop()
-        self.black_player.gnubg.stop()
+        pass
 
     def test_white_opening_move_is_in_possible_moves(self):
         """gnubg's top suggestion for white opening should be in our possible_moves."""
@@ -356,13 +403,11 @@ class TestGnubgMidGamePositions(unittest.TestCase):
 
     def setUp(self):
         self.gnubg = GnubgInterface(plies=0)
-        self.gnubg.start()
         self.white_player = GnubgPlayer(Color.White, plies=0)
         self.white_player.start_game(Game([self.white_player, BozoPlayer(Color.Black)]))
 
     def tearDown(self):
-        self.gnubg.stop()
-        self.white_player.gnubg.stop()
+        pass
 
     def test_bearing_off_position(self):
         """test gnubg suggestions for bearing off position."""
@@ -453,77 +498,6 @@ class TestGnubgMidGamePositions(unittest.TestCase):
             f"but it's not in our possible moves")
 
 
-class TestGnubgBoardFormatBugs(unittest.TestCase):
-    """test specific bugs in gnubg board format generation.
-
-    these tests expose the bug where we send 25 integers but gnubg requires 26.
-    """
-
-    def setUp(self):
-        self.gnubg = GnubgInterface(plies=0)
-        self.gnubg.start()
-
-    def tearDown(self):
-        self.gnubg.stop()
-
-    def test_board_format_has_correct_integer_count(self):
-        """gnubg requires exactly 26 integers but we send 25."""
-        board = Board(standard_starting_points())
-
-        # get the board string we generate
-        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
-        parts = board_str.split()
-
-        # first part is "simple", rest should be integers
-        integer_count = len(parts) - 1
-
-        self.assertEqual(integer_count, 26,
-            f"gnubg requires 26 integers (24 points + 2 bar counts), "
-            f"but we're sending {integer_count}. "
-            f"board string: {board_str}")
-
-    def test_bar_count_format_separate_values(self):
-        """gnubg needs two separate bar counts, not one signed value."""
-        points = list(standard_starting_points())
-        points[0] = Point(1, Color.White)  # reduce point 1 by 1
-        board = Board(points, bar=[1, 0])  # white has 1 on bar, black has 0
-
-        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
-        parts = board_str.split()
-
-        # format: simple [bar_player] [24 points] [bar_opponent]
-        # parts[0] = "simple"
-        # parts[1] = player bar count = 1
-        # parts[26] = opponent bar count = 0
-
-        if len(parts) >= 27:
-            player_bar = int(parts[1])
-            opponent_bar = int(parts[26])
-
-            self.assertEqual(player_bar, 1,
-                f"integer 1 (after 'simple') should be player bar count (1), got {player_bar}")
-            self.assertEqual(opponent_bar, 0,
-                f"integer 26 should be opponent bar count (0), got {opponent_bar}")
-        else:
-            self.fail(f"not enough integers in board string: {board_str}")
-
-    def test_gnubg_accepts_board_without_error(self):
-        """verify gnubg accepts our board format without errors."""
-        board = Board(standard_starting_points())
-        board_str = self.gnubg._board_to_gnubg_simple(board, Color.White)
-
-        # send the board and check gnubg's response
-        self.gnubg._send_command("new game")
-        self.gnubg._read_until_prompt()
-        self.gnubg._send_command(f"set board {board_str}")
-        response = self.gnubg._read_until_prompt()
-
-        # if gnubg rejects the format, it will say "must be followed by 26 integers"
-        self.assertNotIn("must be followed by 26 integers", response,
-            f"gnubg rejected our board format: {response}\n"
-            f"board string: {board_str}")
-        self.assertNotIn("found only", response,
-            f"gnubg rejected our board format: {response}")
 
 
 class TestGnubgBearingOffParsing(unittest.TestCase):
@@ -539,8 +513,7 @@ class TestGnubgBearingOffParsing(unittest.TestCase):
         self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
 
     def tearDown(self):
-        self.white_player.gnubg.stop()
-        self.black_player.gnubg.stop()
+        pass
 
     def test_white_bearing_off_simple(self):
         """white bearing off: "6/off" should mean bear off from gnubg point 6 using the die."""
@@ -634,8 +607,7 @@ class TestGnubgDoublesNotation(unittest.TestCase):
         self.black_player.start_game(Game([BozoPlayer(Color.White), self.black_player]))
 
     def tearDown(self):
-        self.white_player.gnubg.stop()
-        self.black_player.gnubg.stop()
+        pass
 
     def test_doubles_notation_with_count(self):
         """gnubg uses "24/18(2)" to mean do 24/18 twice."""

@@ -1,8 +1,11 @@
-"""interface to gnubg for move evaluation and suggestions."""
-import os
-import re
-import select
+"""socket-based interface to gnubg for move evaluation and suggestions.
+
+completely replaces the broken stdin/stdout implementation.
+"""
+
+import socket
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,45 +19,44 @@ if TYPE_CHECKING:
 class GnubgMove:
     """a move suggestion from gnubg with its evaluation."""
     moves: str  # e.g. "24/18 13/11"
-    equity: float
-    win_prob: float
-    win_gammon_prob: float
-    win_bg_prob: float
-    lose_prob: float
-    lose_gammon_prob: float
-    lose_bg_prob: float
+    equity: float = 0.0  # external interface doesn't return equity directly
+    win_prob: float = 0.0
+    win_gammon_prob: float = 0.0
+    win_bg_prob: float = 0.0
+    lose_prob: float = 0.0
+    lose_gammon_prob: float = 0.0
+    lose_bg_prob: float = 0.0
 
 
-class GnubgInterface:
-    """manages communication with gnubg subprocess."""
+class GnubgDaemon:
+    """manages the gnubg daemon process with external interface."""
 
-    def __init__(self, gnubg_path: str | None = None, data_dir: str | None = None, plies: int = 2):
-        # locate gnubg binary and data directory
-        if gnubg_path is None:
-            repo_root = Path(__file__).parent.parent.parent
-            gnubg_path = str(repo_root / "vendor" / "gnubg" / "gnubg")
-
-        if data_dir is None:
-            repo_root = Path(__file__).parent.parent.parent
-            data_dir = str(repo_root / "vendor" / "gnubg")
-
-        if not os.path.exists(gnubg_path):
-            raise FileNotFoundError(f"gnubg binary not found at {gnubg_path}")
-
-        self.gnubg_path = gnubg_path
-        self.data_dir = data_dir
-        self.plies = plies
+    def __init__(self, port: int = 12345):
+        self.port = port
         self.process: subprocess.Popen[bytes] | None = None
+        self.gnubg_path = str(Path(__file__).parent.parent.parent / "vendor" / "gnubg" / "gnubg")
+        self.data_dir = str(Path(__file__).parent.parent.parent / "vendor" / "gnubg")
+
+    def __del__(self) -> None:
+        self.stop()
 
     def start(self) -> None:
-        """start the gnubg subprocess."""
+        """start gnubg daemon listening on specified port."""
         if self.process is not None:
-            raise RuntimeError("gnubg already started")
+            # check if process is still alive
+            if self.process.poll() is None:
+                return  # already running
+            else:
+                self.process = None  # process died, need to restart
+
+        # kill any existing gnubg processes that might be blocking the port
+        subprocess.run(["pkill", "-f", f"gnubg.*external.*{self.port}"], capture_output=True)
+        time.sleep(0.2)
 
         cmd = [
             self.gnubg_path,
             "-t",  # tty mode
-            "-q",  # quiet (no sound)
+            "-q",  # quiet
             f"--pkgdatadir={self.data_dir}",
             f"--datadir={self.data_dir}",
         ]
@@ -64,185 +66,180 @@ class GnubgInterface:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=0,
         )
 
-        # consume the startup banner
-        self._read_until_prompt()
+        # wait for gnubg to start
+        time.sleep(0.5)
 
-        # configure global evaluation strength
-        # this affects the hint command which is what we use
-        self._send_command(f"set evaluation chequerplay evaluation plies {self.plies}")
-        self._read_until_prompt()
-        self._send_command(f"set evaluation cubedecision evaluation plies {self.plies}")
-        self._read_until_prompt()
+        # send external command to start socket listener
+        if self.process.stdin is not None:
+            self.process.stdin.write(f"external localhost:{self.port}\n".encode())
+            self.process.stdin.flush()
+
+        # wait for socket to be ready
+        time.sleep(1.0)
 
     def stop(self) -> None:
-        """stop the gnubg subprocess."""
+        """stop the gnubg daemon."""
         if self.process is None:
             return
 
+        self.process.terminate()
         try:
-            self._send_command("quit")
-            self.process.wait(timeout=5)
-        except Exception:
-            # force kill if quit doesn't work
+            self.process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
             self.process.kill()
-        finally:
-            self.process = None
+        self.process = None
 
-    def _send_command(self, command: str) -> None:
-        """send a command to gnubg."""
-        if self.process is None or self.process.stdin is None:
-            raise RuntimeError("gnubg not started")
 
-        self.process.stdin.write(f"{command}\n".encode())
-        self.process.stdin.flush()
+# global daemon instance - single gnubg process for all games
+_daemon: GnubgDaemon | None = None
 
-    def _read_until_prompt(self, debug: bool = False) -> str:
-        """read output until we see a prompt (empty line after output).
 
-        gnubg doesn't have a clear prompt in tty mode, so we use a timeout-based
-        approach: read lines until we get a timeout, which indicates gnubg is
-        waiting for input.
-        """
-        if self.process is None or self.process.stdout is None:
-            raise RuntimeError("gnubg not started")
+def get_daemon(port: int = 12345) -> GnubgDaemon:
+    """get or create the global gnubg daemon."""
+    global _daemon
+    if _daemon is None:
+        _daemon = GnubgDaemon(port)
+        _daemon.start()
+    return _daemon
 
-        output_lines = []
-        timeout = 0.1  # wait up to 100ms for more output
 
-        while True:
-            # use select to check if data is available
-            ready, _, _ = select.select([self.process.stdout], [], [], timeout)
+class GnubgInterface:
+    """socket-based interface to gnubg external controller."""
 
-            if not ready:
-                # timeout - gnubg is probably waiting for input
-                break
+    def __init__(self, plies: int = 2):
+        self.plies = plies
+        self.port = 12345
+        self.host = 'localhost'
 
-            line = self.process.stdout.readline().decode().rstrip("\n\r")
-            if debug:
-                print(f"[gnubg] {line}")
+        # ensure daemon is running
+        get_daemon(self.port)
 
-            output_lines.append(line)
+    def _board_to_fibs(self, board: "_Board", player_color: "Color", dice: tuple[int, int]) -> str:
+        """convert our board to FIBS board format.
 
-        return "\n".join(output_lines)
+        working example that gnubg accepts and responds to:
+        board:You:opponent:1:0:0:0:-2:0:0:0:0:5:0:3:0:0:0:-5:5:0:0:0:-3:0:-5:0:0:0:0:2:0:1:6:3:0:0:1:1:1:0:1:-1:0:25:0:0:0:0:2:0:0:0
 
-    def _board_to_gnubg_simple(self, board: "_Board", player_color: "Color") -> str:
-        """convert our board to gnubg simple format.
-
-        gnubg simple format: 26 integers total
-        - integer 1: player's bar count (non-negative)
-        - integers 2-25: points 1-24 (positive = player on roll, negative = opponent)
-        - integer 26: opponent's bar count (non-negative)
-
-        gnubg uses player-relative point numbering:
-        - for white: gnubg point 1 = our point 24, gnubg point 24 = our point 1
-        - for black: gnubg point 1 = our point 1, gnubg point 24 = our point 24
+        format: board:p1:p2:match:s1:s2:[26 board positions]:turn:d1:d2:d3:d4:cube:dbl1:dbl2:was_dbl:color:dir:[trailing fields]
         """
         from autogamen.game.game_types import Color  # noqa: PLC0415
 
-        # build the 24-element array for gnubg
-        gnubg_points = []
+        # build the 26-element board array for FIBS
+        # format: [opponent_bar, points 1-24 from player perspective, player_bar]
+        # positive = player (X), negative = opponent (O)
 
-        for gnubg_point_num in range(1, 25):
-            # convert gnubg point number to our point number
+        board_values = []
+
+        # opponent bar (negative because it's opponent's pieces)
+        opponent_bar = board.bar[player_color.opponent().value]
+        board_values.append(-opponent_bar if opponent_bar else 0)
+
+        # points 1-24 from player's perspective
+        for fibs_point in range(1, 25):
             if player_color == Color.White:
-                our_point_num = 25 - gnubg_point_num
+                # white perspective: FIBS point 1 = our point 24, FIBS 24 = our point 1
+                our_point = 25 - fibs_point
             else:
-                our_point_num = gnubg_point_num
+                # black perspective: FIBS point 1 = our point 1, FIBS 24 = our point 24
+                our_point = fibs_point
 
-            point = board.point_at_number(our_point_num)
-
+            point = board.point_at_number(our_point)
             if point.is_empty():
-                gnubg_points.append(0)
+                board_values.append(0)
+            elif point.color == player_color:
+                board_values.append(point.count)  # positive for player
             else:
-                # in gnubg, X (positive) is the player on roll
-                sign = 1 if point.color == player_color else -1
-                gnubg_points.append(sign * point.count)
+                board_values.append(-point.count)  # negative for opponent
 
-        player_bar_count = board.bar[player_color.value]
-        opponent_bar_count = board.bar[player_color.opponent().value]
+        # player bar
+        player_bar = board.bar[player_color.value]
+        board_values.append(player_bar)
 
-        # correct format: player_bar, then 24 points, then opponent_bar
-        points_str = " ".join(str(p) for p in gnubg_points)
-        return f"simple {player_bar_count} {points_str} {opponent_bar_count}"
+        # construct FIBS string using the working format
+        parts = [
+            "board",
+            "You",
+            "opponent",
+            "1",  # match length
+            "0",  # score 1
+            "0",  # score 2
+        ]
+
+        # add each board position as separate field
+        parts.extend(str(v) for v in board_values)
+
+        # add game state fields
+        parts.append("1")  # turn (1=player)
+
+        # dice fields - for doubles, all 4 should have the same value
+        if dice[0] == dice[1]:
+            # doubles
+            parts.extend([str(dice[0]), str(dice[0]), str(dice[0]), str(dice[0])])
+        else:
+            # normal roll
+            parts.extend([str(dice[0]), str(dice[1]), "0", "0"])
+
+        parts.extend([
+            "1",  # cube
+            "1",  # may double 1
+            "1",  # may double 2
+            "0",  # was doubled
+            "1" if player_color == Color.White else "-1",  # color
+            "-1" if player_color == Color.White else "1",  # direction
+            "0", "25", "0", "0", "0", "0", "2", "0", "0", "0"  # trailing fields from working example
+        ])
+
+        return ":".join(parts)
 
     def get_hint(self, board: "_Board", color: "Color", dice: tuple[int, int]) -> list[GnubgMove]:
         """get move suggestions from gnubg for the given position."""
-        # start a new game
-        self._send_command("new game")
-        self._read_until_prompt()
+        daemon = get_daemon(self.port)
 
-        # set up the board position
-        board_cmd = f"set board {self._board_to_gnubg_simple(board, color)}"
-        self._send_command(board_cmd)
-        self._read_until_prompt()
+        # gnubg's external interface closes the socket listener after each request
+        # we need to restart it before every get_hint() call
+        if daemon.process and daemon.process.stdin and daemon.process.poll() is None:
+            daemon.process.stdin.write(f"external localhost:{self.port}\n".encode())
+            daemon.process.stdin.flush()
+            time.sleep(0.1)
 
-        # set the dice for this position
-        self._send_command(f"set dice {dice[0]} {dice[1]}")
-        self._read_until_prompt()
+        # create new socket connection for this request
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # ask for hint
-        self._send_command("hint")
-        output = self._read_until_prompt()
+        try:
+            # connect with retries
+            for attempt in range(5):
+                try:
+                    sock.connect((self.host, self.port))
+                    break
+                except ConnectionRefusedError:
+                    if attempt < 4:
+                        time.sleep(0.2)
+                    else:
+                        return []  # couldn't connect
 
-        # parse the hint output
-        return self._parse_hint_output(output)
+            # convert board to FIBS format
+            fibs_board = self._board_to_fibs(board, color, dice)
 
-    def _parse_hint_output(self, output: str) -> list[GnubgMove]:
-        """parse gnubg hint output to extract move suggestions.
+            # send board to gnubg
+            sock.sendall(fibs_board.encode() + b"\n")
 
-        gnubg output looks like:
-            1. Cubeful 2-ply    24/18 13/11                  Eq.:  +0.017
-               0.508 0.131 0.006 - 0.492 0.136 0.006
-                2-ply cubeful prune [world class]
-        """
-        moves = []
-        lines = output.split("\n")
+            # receive response
+            response = sock.recv(4096).decode().strip()
 
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
+            # parse response
+            if not response:
+                return []
 
-            # match move line: "1. Cubeful 2-ply    24/18 13/11    Eq.:  +0.017"
-            move_match = re.match(
-                r'\d+\.\s+(?:Cubeful|Cubeless)\s+\S+\s+(.*?)\s+Eq\.:\s+([-+]?\d+\.\d+)',
-                line
-            )
+            if response.startswith("Error"):
+                return []
 
-            if move_match:
-                move_str = move_match.group(1).strip()
-                equity = float(move_match.group(2))
+            # gnubg returns the best move directly
+            return [GnubgMove(moves=response)]
 
-                # next line should have probabilities
-                if i + 1 < len(lines):
-                    prob_line = lines[i + 1].strip()
-                    # "0.508 0.131 0.006 - 0.492 0.136 0.006"
-                    prob_match = re.match(
-                        r'([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)',
-                        prob_line
-                    )
-
-                    if prob_match:
-                        moves.append(GnubgMove(
-                            moves=move_str,
-                            equity=equity,
-                            win_prob=float(prob_match.group(1)),
-                            win_gammon_prob=float(prob_match.group(2)),
-                            win_bg_prob=float(prob_match.group(3)),
-                            lose_prob=float(prob_match.group(4)),
-                            lose_gammon_prob=float(prob_match.group(5)),
-                            lose_bg_prob=float(prob_match.group(6)),
-                        ))
-
-            i += 1
-
-        return moves
-
-    def __enter__(self) -> "GnubgInterface":
-        self.start()
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.stop()
+        except Exception:
+            # connection error or gnubg not running
+            return []
+        finally:
+            sock.close()

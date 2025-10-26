@@ -97,7 +97,6 @@ class GnubgPlayer(Player):
     # local import prevents circular dependency
     from autogamen.gnubg.interface import GnubgInterface  # noqa: PLC0415
     self.gnubg = GnubgInterface(plies=plies)
-    self.gnubg.start()
 
   def action(self, possible_moves: set[tuple[tuple[Any, ...], Any]]) -> list[Any]:
     if not len(possible_moves):
@@ -231,10 +230,6 @@ class GnubgPlayer(Player):
 
   def end_game(self, game: "Game") -> None:
     super().end_game(game)
-
-  def __del__(self) -> None:
-    if hasattr(self, 'gnubg'):
-      self.gnubg.stop()
 
 
 class PypibgPlayer(Player):
